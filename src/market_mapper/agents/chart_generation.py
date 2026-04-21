@@ -1,0 +1,2 @@
+"""Chart Generation Agent placeholder."""
+

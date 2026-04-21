@@ -1,0 +1,2 @@
+"""Market Mapper application package."""
+

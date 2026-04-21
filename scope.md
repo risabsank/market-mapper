@@ -55,16 +55,19 @@ Market Mapper should be implemented as a LangGraph-based multi-agent workflow in
 
 The workflow should not behave like one long single-agent prompt. It should behave like a coordinated research graph where each step produces structured state that downstream agents can validate, reuse, and display in the dashboard.
 
+The project should also use sandbox agents wherever they add clear value. Sandbox agents should be used for work that benefits from isolated compute, filesystem access, browser automation, command execution, temporary artifacts, dependency isolation, or reproducible snapshots. The main workflow executor should stay in the trusted application harness, while sandbox agents should handle execution-heavy tasks in a controlled environment.
+
 High-level flow:
 
 1. The user submits a market research prompt.
 2. The planner turns the prompt into a research plan.
 3. The executor runs the plan by calling specialist agents.
-4. Specialist agents collect, extract, compare, chart, and summarize the research.
-5. The critic and verifier reviews the research state.
-6. If the research is incomplete, the executor sends the workflow back to the relevant specialist agent.
-7. If the research is complete, the report and dashboard are generated.
-8. The finished dashboard becomes the knowledge base for the session chatbot.
+4. The executor launches sandbox-backed tasks when an agent needs isolated compute or artifact generation.
+5. Specialist agents collect, extract, compare, chart, and summarize the research.
+6. The critic and verifier agent reviews the research state.
+7. If the research is incomplete, the executor sends the workflow back to the relevant specialist agent.
+8. If the research is complete, the report and dashboard are generated.
+9. The finished dashboard becomes the knowledge base for the session chatbot.
 
 Suggested graph shape:
 
@@ -72,17 +75,24 @@ Suggested graph shape:
 flowchart TD
     A[User Prompt] --> B[Research Planner]
     B --> C[Workflow Executor]
+    C --> S[Sandbox Task Runtime]
     C --> D[Company Discovery Agent]
     C --> E[Web Research Agent]
+    S --> E
     D --> E
     E --> F[Structured Extraction Agent]
+    S --> F
     F --> G[Comparison Agent]
     G --> H[Critic and Verifier Agent]
+    S --> H
     H -->|Needs more research| C
     H -->|Approved| I[Report Generation Agent]
     H -->|Approved| J[Chart Generation Agent]
+    S --> I
+    S --> J
     I --> K[Dashboard Builder]
     J --> K
+    S --> K
     K --> L[Session Chatbot]
     K --> M[Markdown Report Download]
 ```
@@ -123,6 +133,7 @@ Responsibilities:
 - Handle retry loops when the critic and verifier agent finds missing or weak information.
 - Stop unnecessary work when the research plan is already satisfied.
 - Ensure the final dashboard only uses approved research state.
+- Decide when a specialist task should run in a sandbox and what files, credentials, network access, or mounted state it is allowed to use.
 
 Expected behavior:
 
@@ -130,6 +141,7 @@ Expected behavior:
 - The executor should run structured extraction after web research, not before enough source material has been collected.
 - The executor should call the critic and verifier before final report generation.
 - The executor should route the workflow back to the specific agent responsible for a missing field instead of restarting the entire workflow.
+- The executor should keep orchestration, audit logs, approvals, user state, billing, and recovery state outside the sandbox.
 
 ### 4.3 Company Discovery Agent
 
@@ -157,12 +169,14 @@ Responsibilities:
 - Use public sources when official information is incomplete.
 - Preserve source URLs for traceability.
 - Capture enough context for later extraction and verification.
+- Store source snapshots or extracted artifacts when a sandbox agent is used.
 
 Suggested tools:
 
 - Playwright for dynamic pages.
 - BeautifulSoup, Trafilatura, or similar tools for page extraction.
 - Search APIs or browser-based search for public discovery.
+- Sandbox agents for browser automation, page capture, source snapshots, and temporary extraction artifacts.
 
 ### 4.5 Structured Extraction Agent
 
@@ -237,6 +251,7 @@ Responsibilities:
 - Generate chart data from structured company profiles and comparisons.
 - Support visualizations such as feature coverage, pricing availability, target segment focus, positioning maps, and scorecards.
 - Avoid charts when the underlying data is too sparse or uncertain.
+- Use a sandbox agent when chart generation requires Python execution, local files, rendered image artifacts, or reproducible chart snapshots.
 
 ### 4.10 Dashboard Builder
 
@@ -250,6 +265,7 @@ Responsibilities:
 - Keep the dashboard aligned with the original user prompt and approved research plan.
 - Surface missing or unavailable data clearly.
 - Store the final research state so the session chatbot can answer follow-up questions.
+- Use sandbox-generated artifacts where appropriate, such as chart files, Markdown exports, page snapshots, and validation outputs.
 
 ### 4.11 Session Chatbot
 
@@ -263,6 +279,35 @@ Responsibilities:
 - Cite or reference source-backed claims when answering factual questions.
 - Explain when an answer depends on inference rather than directly collected evidence.
 - Refuse to answer from unrelated sessions or uncollected data.
+
+### 4.12 Sandbox Agent Usage
+
+Purpose:
+
+Add sandbox-backed execution wherever it makes the system safer, more reliable, or more capable.
+
+Sandbox agents should be used for:
+
+- Web research tasks that require browser automation, JavaScript rendering, screenshot capture, or saved page snapshots.
+- Data extraction tasks that need temporary files, parsing scripts, or repeatable cleanup of messy HTML and text.
+- Chart generation tasks that need Python, Pandas, plotting libraries, generated images, or chart data validation.
+- Report generation tasks that need to render, validate, or package Markdown artifacts.
+- Dashboard build tasks that need temporary preview files or generated assets.
+- Verification tasks that need to run consistency checks against structured JSON, CSV, or Markdown outputs.
+
+Sandbox agents should not be used by default for:
+
+- The research planner, unless it needs to inspect uploaded files or artifacts.
+- The workflow executor, because orchestration, approvals, audit logs, tracing, billing, and recovery state should remain in the trusted application harness.
+- The session chatbot, unless it needs to inspect or regenerate a specific artifact from the completed research session.
+
+Sandbox requirements:
+
+- Give each sandbox task the smallest useful set of files, credentials, network permissions, and mounted state.
+- Treat sandbox output as untrusted until it is validated by the structured extraction or critic and verifier steps.
+- Persist only approved artifacts back into the research session.
+- Keep source snapshots and generated artifacts tied to the relevant `WorkflowRun` and `AgentTask`.
+- Prefer sandbox snapshots for long-running or retryable research tasks so failed work can be resumed or inspected.
 
 ## 5. Dashboard Requirements
 
@@ -320,6 +365,8 @@ Suggested core entities:
 - ResearchPlan
 - WorkflowRun
 - AgentTask
+- SandboxTask
+- SandboxArtifact
 - CompanyCandidate
 - CompanyProfile
 - SourceDocument
@@ -378,6 +425,7 @@ MVP capabilities:
 - Research each company using public web sources.
 - Extract structured company profiles.
 - Compare companies across pricing, features, positioning, and target customers.
+- Use sandbox agents for execution-heavy tasks such as browser research, extraction artifacts, chart generation, and report export when useful.
 - Generate an executive summary, comparison tables, charts, and a Markdown report.
 - Provide a collapsible session-specific chatbot for follow-up questions.
 
@@ -397,6 +445,7 @@ The project should use the stack defined in `AGENTS.md`:
 - Python for the application and workflow logic.
 - LangGraph for agent orchestration.
 - LangChain and OpenAI API for model calls and tool use.
+- OpenAI Agents SDK sandbox agents where isolated execution, filesystem access, command execution, or artifact generation is useful.
 - Playwright for browser-based research.
 - BeautifulSoup and Trafilatura for web extraction.
 - Pydantic for structured schemas.
@@ -406,6 +455,8 @@ The project should use the stack defined in `AGENTS.md`:
 - Docker and Kubernetes for deployment when the product is ready to move beyond local development.
 
 The implementation should keep agents modular, state explicit, and outputs validated before they are used by downstream steps.
+
+The application should separate the trusted harness from sandbox compute. The trusted harness should own orchestration, model calls, tool routing, approvals, tracing, recovery, and durable run state. Sandbox compute should be used for model-directed execution that reads or writes files, runs commands, uses browser tooling, generates report or chart artifacts, and snapshots intermediate state.
 
 ## 11. Success Criteria
 
