@@ -7,10 +7,12 @@ name = "market-mapper"
 version = "0.1.0"
 description = "Planner-executor market research system scaffold"
 requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2,<3",
+]
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
