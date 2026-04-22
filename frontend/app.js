@@ -1,353 +1,34 @@
-const dashboardData = {
-  session: {
-    id: "session_ai_support",
-    prompt:
-      "Analyze 4 of the largest companies in AI customer support and create a comparison report.",
-    promptSummary:
-      "This session compares AI customer support platforms across pricing transparency, feature depth, enterprise fit, integrations, and public evidence quality.",
-    status: "Approved for reporting",
-  },
-  plan: {
-    marketQuery: "AI customer support",
-    requestedCompanyCount: 4,
-    discoveryCriteria: [
-      "Largest public presence in AI customer support",
-      "Clear product and pricing evidence from official sites",
-      "Relevant enterprise and mid-market positioning",
-      "Enough public documentation for structured comparison",
-    ],
-    comparisonDimensions: [
-      "pricing",
-      "features",
-      "positioning",
-      "target customers",
-      "integrations",
-      "differentiators",
-      "strengths",
-      "gaps",
-    ],
-    assumptions: [
-      "Comparison uses public product, pricing, and documentation pages only.",
-      "Sparse or missing public pricing is treated as uncertainty, not a negative signal by itself.",
-      "Enterprise readiness is inferred from public messaging, integrations, and proof points.",
-    ],
-  },
-  executiveSummary:
-    "Intercom and Zendesk appear strongest overall for broad AI customer support maturity, but they win for different reasons. Intercom presents the sharper AI-first narrative and more visible automation packaging, while Zendesk looks strongest where enterprise process depth and operational breadth matter. Freshworks offers a more accessible path for teams that want breadth with simpler rollout, and Forethought stands out where agent-assist and automation sophistication matter more than platform breadth. Public pricing transparency remains uneven across the category, so pricing comparisons are more directional than definitive.",
-  keyTakeaways: [
-    "Intercom reads as the most AI-forward brand in the set, with strong messaging around automation, copilots, and resolution workflows.",
-    "Zendesk looks like the safest choice for larger support organizations that need workflow depth, broad service coverage, and enterprise governance.",
-    "Freshworks is easier to position as a value and simplicity play, especially for teams that want a broad support stack without an enterprise-heavy rollout.",
-    "Forethought is compelling when AI automation quality is the center of the buying motion, but the public platform picture is narrower than Zendesk or Intercom.",
-  ],
-  tradeoffs: [
-    "The strongest platforms on AI positioning are not always the most transparent on public pricing.",
-    "Broader platform suites usually come with more complexity and more ambiguous entry pricing.",
-    "AI-specialist products can look sharper on automation workflows while still needing adjacent tooling for full support operations.",
-  ],
-  companies: [
-    {
-      id: "company_intercom",
-      name: "Intercom",
-      website: "https://www.intercom.com",
-      positioning: "AI-first customer service for support teams that want automation visible in the buying story.",
-      targetCustomers: ["Mid-market", "Enterprise"],
-      pricingModel: "Tiered plans plus usage-based AI features",
-      publicPricingDetails: ["Starter and advanced tiers are public", "Some AI usage pricing needs sales context"],
-      coreFeatures: ["AI agent", "Shared inbox", "Workflows", "Help center"],
-      integrations: ["Salesforce", "HubSpot", "Slack", "Stripe"],
-      differentiators: ["AI-forward messaging", "Modern support workflow design"],
-      strengths: ["AI product narrative", "Automation clarity", "Strong self-serve support UX"],
-      gaps: ["Enterprise governance details are less explicit than Zendesk"],
-      confidence: 0.82,
-      missing: ["deeper public enterprise governance detail"],
-      sources: ["source_intercom_home", "source_intercom_pricing", "source_intercom_ai"],
-    },
-    {
-      id: "company_zendesk",
-      name: "Zendesk",
-      website: "https://www.zendesk.com",
-      positioning: "Enterprise-grade service platform with broad support operations coverage and growing AI layering.",
-      targetCustomers: ["Enterprise", "Upper mid-market"],
-      pricingModel: "Public plan tiers with enterprise upsell",
-      publicPricingDetails: ["Suite plan ranges are public", "Enterprise packaging still requires sales motion"],
-      coreFeatures: ["AI agents", "Ticketing", "Workflows", "Knowledge base", "Analytics"],
-      integrations: ["Salesforce", "Slack", "Jira", "Shopify"],
-      differentiators: ["Operational breadth", "Enterprise service maturity"],
-      strengths: ["Governance depth", "Support operations breadth", "Enterprise credibility"],
-      gaps: ["AI messaging feels less focused than Intercom"],
-      confidence: 0.86,
-      missing: ["finer AI pricing detail"],
-      sources: ["source_zendesk_home", "source_zendesk_pricing", "source_zendesk_ai"],
-    },
-    {
-      id: "company_freshworks",
-      name: "Freshworks",
-      website: "https://www.freshworks.com",
-      positioning: "Broad support suite positioned around ease of use, speed to value, and accessible pricing.",
-      targetCustomers: ["SMB", "Mid-market"],
-      pricingModel: "Public tiered SaaS pricing",
-      publicPricingDetails: ["Most core plans are public", "Advanced enterprise packaging can vary"],
-      coreFeatures: ["Ticketing", "Bots", "Knowledge base", "Analytics"],
-      integrations: ["Slack", "Microsoft Teams", "HubSpot", "Jira"],
-      differentiators: ["Approachable rollout", "Value-oriented packaging"],
-      strengths: ["Pricing transparency", "Ease of adoption", "Broad support coverage"],
-      gaps: ["AI depth looks less differentiated in public materials"],
-      confidence: 0.74,
-      missing: ["clear enterprise AI differentiation"],
-      sources: ["source_freshworks_home", "source_freshworks_pricing", "source_freshworks_ai"],
-    },
-    {
-      id: "company_forethought",
-      name: "Forethought",
-      website: "https://forethought.ai",
-      positioning: "AI automation specialist centered on agent-assist and support resolution quality.",
-      targetCustomers: ["Mid-market", "Enterprise"],
-      pricingModel: "Sales-led pricing",
-      publicPricingDetails: ["No detailed public tier pricing"],
-      coreFeatures: ["Agent assist", "Automated resolution", "Intent detection", "Insights"],
-      integrations: ["Salesforce", "Zendesk", "Intercom", "Freshdesk"],
-      differentiators: ["AI specialization", "Resolution-focused workflows"],
-      strengths: ["Specialist AI story", "Focused support automation"],
-      gaps: ["Less visible platform breadth", "Low public pricing transparency"],
-      confidence: 0.68,
-      missing: ["public pricing", "full support suite breadth"],
-      sources: ["source_forethought_home", "source_forethought_platform", "source_forethought_integrations"],
-    },
-  ],
-  comparisonFindings: [
-    {
-      dimension: "pricing",
-      summary:
-        "Freshworks is the most transparent publicly, Zendesk and Intercom show meaningful plan structure, and Forethought remains mostly sales-led.",
-    },
-    {
-      dimension: "features",
-      summary:
-        "Zendesk and Intercom look broadest in public feature coverage, while Forethought is narrower but more specialized in AI support automation.",
-    },
-    {
-      dimension: "positioning",
-      summary:
-        "Intercom is the clearest AI-first brand, Zendesk is the enterprise platform choice, Freshworks leans toward speed and value, and Forethought leans specialist AI depth.",
-    },
-    {
-      dimension: "target_customers",
-      summary:
-        "Zendesk and Intercom cover enterprise most convincingly in public materials, while Freshworks feels strongest in SMB to mid-market accessibility.",
-    },
-  ],
-  charts: [
-    {
-      id: "chart_confidence",
-      title: "Research Confidence by Company",
-      description: "How grounded each profile is based on public evidence and missing-field coverage.",
-      type: "bar",
-      artifactSvg: createBarChartSvg({
-        title: "Research Confidence by Company",
-        data: [
-          { label: "Intercom", value: 0.82 },
-          { label: "Zendesk", value: 0.86 },
-          { label: "Freshworks", value: 0.74 },
-          { label: "Forethought", value: 0.68 },
-        ],
-        valueSuffix: "",
-      }),
-    },
-    {
-      id: "chart_sources",
-      title: "Source Coverage by Company",
-      description: "Traceable source count per company profile.",
-      type: "bar",
-      artifactSvg: createBarChartSvg({
-        title: "Source Coverage by Company",
-        data: [
-          { label: "Intercom", value: 3 },
-          { label: "Zendesk", value: 3 },
-          { label: "Freshworks", value: 3 },
-          { label: "Forethought", value: 3 },
-        ],
-        valueSuffix: "",
-      }),
-    },
-    {
-      id: "chart_coverage",
-      title: "Dimension Coverage Matrix",
-      description: "Which dimensions have clear public evidence by company.",
-      type: "heatmap",
-      artifactSvg: createHeatmapSvg({
-        title: "Dimension Coverage Matrix",
-        columns: ["Pricing", "Features", "Positioning", "Integrations", "Differentiators"],
-        rows: [
-          { label: "Intercom", values: [1, 1, 1, 1, 1] },
-          { label: "Zendesk", values: [1, 1, 1, 1, 1] },
-          { label: "Freshworks", values: [1, 1, 1, 1, 0.6] },
-          { label: "Forethought", values: [0.2, 0.8, 1, 1, 1] },
-        ],
-      }),
-    },
-  ],
-  report: {
-    title: "AI Customer Support Competitive Comparison",
-    markdown: `# AI Customer Support Competitive Comparison
+const DEFAULT_CHAT_SUGGESTIONS = [
+  "Which company looks strongest for enterprise support teams?",
+  "Where is pricing transparency strongest or weakest?",
+  "Which parts of this comparison are the least certain?",
+];
 
-## Executive Summary
-
-Intercom and Zendesk appear strongest overall for broad AI customer support maturity, but they win for different reasons. Intercom is the clearest AI-first brand in the set, while Zendesk looks strongest for enterprise-grade operational depth. Freshworks reads as the most accessible and publicly transparent option, and Forethought stands out where specialist AI automation matters more than suite breadth.
-
-## Company Summaries
-
-- **Intercom**: AI-first positioning with strong automation messaging and a modern support workflow story.
-- **Zendesk**: Broad service platform with the strongest public enterprise credibility in the set.
-- **Freshworks**: Accessible packaging and broad support coverage for teams prioritizing speed and value.
-- **Forethought**: Specialist AI resolution and agent-assist platform with thinner public pricing coverage.
-
-## Structured Comparison
-
-- Pricing transparency favors Freshworks.
-- Enterprise operations breadth favors Zendesk.
-- AI-forward positioning favors Intercom.
-- Specialist automation depth favors Forethought.
-
-## Key Takeaways
-
-- The strongest AI story and the strongest enterprise ops story are not exactly the same product.
-- Pricing comparisons remain directional because public transparency is uneven.
-- Teams that value speed and clarity will likely shortlist differently than teams that prioritize governance depth.
-
-## Source References
-
-- \`source_intercom_home\` - Intercom homepage
-- \`source_zendesk_home\` - Zendesk homepage
-- \`source_freshworks_home\` - Freshworks homepage
-- \`source_forethought_home\` - Forethought homepage
-`,
-  },
-  sources: [
-    {
-      id: "source_intercom_home",
-      title: "Intercom customer service platform",
-      url: "https://www.intercom.com",
-      snippet: "Homepage and product overview used for positioning, AI workflows, and target customer framing.",
-      company: "Intercom",
-      sourceType: "official_site",
-    },
-    {
-      id: "source_intercom_pricing",
-      title: "Intercom pricing",
-      url: "https://www.intercom.com/pricing",
-      snippet: "Used for pricing model and packaging details.",
-      company: "Intercom",
-      sourceType: "official_pricing",
-    },
-    {
-      id: "source_intercom_ai",
-      title: "Intercom AI agent",
-      url: "https://www.intercom.com/fin",
-      snippet: "Used for AI capability and differentiation claims.",
-      company: "Intercom",
-      sourceType: "official_ai",
-    },
-    {
-      id: "source_zendesk_home",
-      title: "Zendesk service platform",
-      url: "https://www.zendesk.com",
-      snippet: "Used for positioning, support operations breadth, and platform framing.",
-      company: "Zendesk",
-      sourceType: "official_site",
-    },
-    {
-      id: "source_zendesk_pricing",
-      title: "Zendesk pricing",
-      url: "https://www.zendesk.com/pricing",
-      snippet: "Used for public plan structure and pricing transparency comparison.",
-      company: "Zendesk",
-      sourceType: "official_pricing",
-    },
-    {
-      id: "source_zendesk_ai",
-      title: "Zendesk AI",
-      url: "https://www.zendesk.com/service/ai",
-      snippet: "Used for AI feature and automation support.",
-      company: "Zendesk",
-      sourceType: "official_ai",
-    },
-    {
-      id: "source_freshworks_home",
-      title: "Freshworks service suite",
-      url: "https://www.freshworks.com",
-      snippet: "Used for suite positioning and target customer framing.",
-      company: "Freshworks",
-      sourceType: "official_site",
-    },
-    {
-      id: "source_freshworks_pricing",
-      title: "Freshworks pricing",
-      url: "https://www.freshworks.com/freshdesk/pricing",
-      snippet: "Used for pricing transparency and plan coverage.",
-      company: "Freshworks",
-      sourceType: "official_pricing",
-    },
-    {
-      id: "source_freshworks_ai",
-      title: "Freshworks Freddy AI",
-      url: "https://www.freshworks.com/platform/ai",
-      snippet: "Used for AI positioning and capability coverage.",
-      company: "Freshworks",
-      sourceType: "official_ai",
-    },
-    {
-      id: "source_forethought_home",
-      title: "Forethought homepage",
-      url: "https://forethought.ai",
-      snippet: "Used for product positioning and target buyer framing.",
-      company: "Forethought",
-      sourceType: "official_site",
-    },
-    {
-      id: "source_forethought_platform",
-      title: "Forethought platform overview",
-      url: "https://forethought.ai/platform",
-      snippet: "Used for specialist automation feature coverage.",
-      company: "Forethought",
-      sourceType: "official_platform",
-    },
-    {
-      id: "source_forethought_integrations",
-      title: "Forethought integrations",
-      url: "https://forethought.ai/integrations",
-      snippet: "Used for ecosystem and deployment fit.",
-      company: "Forethought",
-      sourceType: "official_integrations",
-    },
-  ],
-  chatSuggestions: [
-    "Which company looks strongest for enterprise support teams?",
-    "Where is pricing transparency strongest or weakest?",
-    "Which claims in this dashboard are the most uncertain?",
-  ],
-};
+const RUN_POLL_INTERVAL_MS = 3000;
+const RUN_POLL_ATTEMPTS = 20;
 
 const state = {
   theme: localStorage.getItem("market-mapper-theme") || "light",
   chatCollapsed: false,
-  thread: [
-    {
-      role: "assistant",
-      text:
-        "This panel stays inside the current research session. Ask about the comparison, sources, pricing, or uncertainty and I’ll answer from the approved dashboard state.",
-      citations: [],
-      uncertainty: null,
-    },
-  ],
+  sessionId: null,
+  session: null,
+  runStatus: null,
+  dashboard: null,
+  loading: true,
+  error: null,
+  thread: [],
 };
 
-initialize();
+initialize().catch((error) => {
+  console.error(error);
+  showErrorState("Unable to load dashboard", error.message || "The dashboard could not be loaded.");
+});
 
-function initialize() {
+async function initialize() {
   applyTheme(state.theme);
-  renderDashboard();
   bindEvents();
+  renderDashboard();
+  await loadDashboard();
 }
 
 function bindEvents() {
@@ -355,6 +36,12 @@ function bindEvents() {
   document.getElementById("chat-toggle").addEventListener("click", toggleChat);
   document.getElementById("download-report").addEventListener("click", downloadMarkdown);
   document.getElementById("chat-form").addEventListener("submit", handleChatSubmit);
+  document.getElementById("app-state-retry").addEventListener("click", () => {
+    loadDashboard().catch((error) => {
+      console.error(error);
+      showErrorState("Unable to reload dashboard", error.message || "The dashboard could not be reloaded.");
+    });
+  });
 
   document.querySelectorAll(".nav-item").forEach((button) => {
     button.addEventListener("click", () => {
@@ -365,22 +52,105 @@ function bindEvents() {
   });
 }
 
-function renderDashboard() {
-  document.getElementById("run-status-label").textContent = dashboardData.session.status;
-  document.getElementById("prompt-title").textContent = dashboardData.session.prompt;
-  document.getElementById("hero-heading").textContent = dashboardData.plan.marketQuery;
-  document.getElementById("hero-summary").textContent = dashboardData.session.promptSummary;
-  document.getElementById("metric-company-count").textContent = String(dashboardData.companies.length);
-  document.getElementById("metric-source-count").textContent = String(dashboardData.sources.length);
-  document.getElementById("metric-chart-count").textContent = String(dashboardData.charts.length);
-  document.getElementById("plan-company-count").textContent = `${dashboardData.plan.requestedCompanyCount} companies`;
-  document.getElementById("executive-summary").textContent = dashboardData.executiveSummary;
+async function loadDashboard() {
+  state.loading = true;
+  state.error = null;
+  renderAppState({
+    eyebrow: "Loading",
+    title: "Fetching session data",
+    body: "Looking up the current session, run state, and approved dashboard payload.",
+    showRetry: false,
+  });
+  renderDashboard();
 
-  populateList("discovery-criteria", dashboardData.plan.discoveryCriteria);
-  populateTagList("comparison-dimensions", dashboardData.plan.comparisonDimensions);
-  populateList("plan-assumptions", dashboardData.plan.assumptions);
-  populateList("key-takeaways", dashboardData.keyTakeaways);
-  populateList("tradeoffs", dashboardData.tradeoffs);
+  const sessionId = resolveSessionId();
+  if (!sessionId) {
+    showErrorState(
+      "No session selected",
+      "Open the dashboard with a `session_id` query parameter, or create a session and run through the backend API first."
+    );
+    return;
+  }
+
+  state.sessionId = sessionId;
+  state.session = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+  if (state.session?.id) {
+    storeSessionId(state.session.id);
+  }
+  state.runStatus = state.session.active_run_id
+    ? await fetchRunStatus(state.session.active_run_id)
+    : null;
+
+  const snapshot = await waitForApprovedDashboard(sessionId);
+  state.dashboard = mapSnapshotToDashboard({
+    session: state.session,
+    runStatus: state.runStatus,
+    snapshot,
+  });
+  state.thread = [
+    {
+      role: "assistant",
+      text:
+        "This panel stays inside the approved research for the current session. Ask about pricing, differentiators, sources, or uncertainty and I’ll answer from the saved dashboard state.",
+      references: [],
+      citations: [],
+      uncertainty: null,
+    },
+  ];
+  state.loading = false;
+  hideAppState();
+  renderDashboard();
+}
+
+async function waitForApprovedDashboard(sessionId) {
+  for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
+    try {
+      return await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/dashboard`);
+    } catch (error) {
+      if (error.status !== 404) {
+        throw error;
+      }
+      state.runStatus = state.session?.active_run_id
+        ? await fetchRunStatus(state.session.active_run_id)
+        : state.runStatus;
+      if (!state.runStatus || !isRunPending(state.runStatus.run.status)) {
+        throw new Error("No approved dashboard is available for this session yet.");
+      }
+      renderAppState({
+        eyebrow: "Running",
+        title: "Research is still in progress",
+        body: buildRunProgressMessage(state.runStatus),
+        showRetry: false,
+      });
+      renderDashboard();
+      await sleep(RUN_POLL_INTERVAL_MS);
+    }
+  }
+  throw new Error("Timed out while waiting for the approved dashboard payload.");
+}
+
+function renderDashboard() {
+  const dashboard = state.dashboard;
+  document.getElementById("run-status-label").textContent = dashboard?.session.status || "Waiting for session";
+  document.getElementById("prompt-title").textContent = dashboard?.session.prompt || "Market Mapper Dashboard";
+  document.getElementById("hero-heading").textContent = dashboard?.plan.marketQuery || "No approved dashboard loaded";
+  document.getElementById("hero-summary").textContent =
+    dashboard?.session.promptSummary ||
+    "This dashboard will populate once the approved session state is available from the backend.";
+  document.getElementById("metric-company-count").textContent = String(dashboard?.companies.length || 0);
+  document.getElementById("metric-source-count").textContent = String(dashboard?.sources.length || 0);
+  document.getElementById("metric-chart-count").textContent = String(dashboard?.charts.length || 0);
+  document.getElementById("plan-company-count").textContent = dashboard
+    ? `${dashboard.plan.requestedCompanyCount} companies`
+    : "No plan yet";
+  document.getElementById("executive-summary").textContent =
+    dashboard?.executiveSummary || "The executive summary will appear here when the approved dashboard is ready.";
+
+  populateList("discovery-criteria", dashboard?.plan.discoveryCriteria || []);
+  populateTagList("comparison-dimensions", dashboard?.plan.comparisonDimensions || []);
+  populateList("plan-assumptions", dashboard?.plan.assumptions || []);
+  populateList("key-takeaways", dashboard?.keyTakeaways || []);
+  populateList("tradeoffs", dashboard?.tradeoffs || []);
 
   renderConfidencePanel();
   renderCompanyCards();
@@ -392,158 +162,191 @@ function renderDashboard() {
   renderChatSuggestions();
   renderChatThread();
   renderMarkdownPreview();
+  syncControlState();
 }
 
 function renderConfidencePanel() {
-  const averageConfidence =
-    dashboardData.companies.reduce((sum, company) => sum + company.confidence, 0) /
-    dashboardData.companies.length;
+  const companies = state.dashboard?.companies || [];
+  const averageConfidence = companies.length
+    ? companies.reduce((sum, company) => sum + company.confidence, 0) / companies.length
+    : 0;
   const percentage = Math.round(averageConfidence * 100);
   document.getElementById("confidence-value").textContent = `${percentage}%`;
   const circumference = 2 * Math.PI * 48;
   const offset = circumference * (1 - averageConfidence);
   document.getElementById("ring-progress").style.strokeDasharray = `${circumference}`;
   document.getElementById("ring-progress").style.strokeDashoffset = `${offset}`;
+
+  const strongCoverageCount = companies.filter((company) => company.confidence >= 0.8).length;
+  const uncertainCompanyCount = companies.filter((company) => company.missing.length > 0).length;
   populateList("confidence-notes", [
-    `${dashboardData.companies.filter((company) => company.confidence >= 0.8).length} companies have strong public evidence coverage.`,
-    `${dashboardData.companies.filter((company) => company.missing.length > 0).length} companies still have at least one uncertain area.`,
-    "Pricing remains the least evenly documented dimension across the set.",
+    companies.length
+      ? `${strongCoverageCount} companies have strong public evidence coverage.`
+      : "No company evidence has been loaded yet.",
+    `${uncertainCompanyCount} companies still have at least one uncertain area.`,
+    state.dashboard?.plan.comparisonDimensions.includes("pricing")
+      ? "Pricing remains one of the least evenly documented dimensions in most markets."
+      : "Confidence notes will become more specific once the market data is available.",
   ]);
 }
 
 function renderCompanyCards() {
   const container = document.getElementById("company-cards");
-  container.innerHTML = dashboardData.companies
-    .map(
-      (company) => `
-        <article class="company-card">
-          <p class="eyebrow">${company.targetCustomers.join(" / ")}</p>
-          <h4>${company.name}</h4>
-          <p class="muted-copy">${company.positioning}</p>
-          <div class="company-meta">
-            <span class="meta-chip">${Math.round(company.confidence * 100)}% confidence</span>
-            <span class="coverage-chip">${company.sources.length} sources</span>
-            ${company.missing.length ? `<span class="missing-chip">${company.missing.length} uncertain areas</span>` : ""}
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  const companies = state.dashboard?.companies || [];
+  container.innerHTML = companies.length
+    ? companies
+        .map(
+          (company) => `
+            <article class="company-card">
+              <p class="eyebrow">${escapeHtml(company.targetCustomers.join(" / ") || "Unknown target")}</p>
+              <h4>${escapeHtml(company.name)}</h4>
+              <p class="muted-copy">${escapeHtml(company.positioning || "No positioning summary available.")}</p>
+              <div class="company-meta">
+                <span class="meta-chip">${Math.round(company.confidence * 100)}% confidence</span>
+                <span class="coverage-chip">${company.sources.length} sources</span>
+                ${company.missing.length ? `<span class="missing-chip">${company.missing.length} uncertain areas</span>` : ""}
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="company-card"><p class="muted-copy">Selected companies will appear here once the dashboard has loaded.</p></article>`;
 }
 
 function renderPricingCards() {
   const container = document.getElementById("pricing-cards");
-  container.innerHTML = dashboardData.companies
-    .map(
-      (company) => `
-        <article class="pricing-card">
-          <p class="eyebrow">${company.name}</p>
-          <h4>${company.pricingModel}</h4>
-          <div class="bullet-list">
-            ${company.publicPricingDetails.map((detail) => `<div>${detail}</div>`).join("")}
-          </div>
-          ${
-            company.pricingModel.toLowerCase().includes("sales")
-              ? `<p class="warning-text" style="margin-top:12px;">Public pricing is incomplete.</p>`
-              : ""
-          }
-        </article>
-      `
-    )
-    .join("");
+  const companies = state.dashboard?.companies || [];
+  container.innerHTML = companies.length
+    ? companies
+        .map(
+          (company) => `
+            <article class="pricing-card">
+              <p class="eyebrow">${escapeHtml(company.name)}</p>
+              <h4>${escapeHtml(company.pricingModel || "Pricing not publicly disclosed")}</h4>
+              <div class="bullet-list">
+                ${(company.publicPricingDetails.length
+                  ? company.publicPricingDetails
+                  : ["No detailed public pricing information is available."]
+                )
+                  .map((detail) => `<div>${escapeHtml(detail)}</div>`)
+                  .join("")}
+              </div>
+              ${
+                !company.publicPricingDetails.length ||
+                (company.pricingModel || "").toLowerCase().includes("sales")
+                  ? `<p class="warning-text" style="margin-top:12px;">Pricing evidence is incomplete or sales-led.</p>`
+                  : ""
+              }
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="pricing-card"><p class="muted-copy">Pricing comparisons will appear here once the dashboard has loaded.</p></article>`;
 }
 
 function renderComparisonTable() {
   const table = document.getElementById("comparison-table");
   const columns = ["Company", "Positioning", "Target Customers", "Differentiators", "Strengths", "Gaps"];
-  table.querySelector("thead").innerHTML = `<tr>${columns.map((column) => `<th>${column}</th>`).join("")}</tr>`;
-  table.querySelector("tbody").innerHTML = dashboardData.companies
-    .map(
-      (company) => `
-        <tr>
-          <td><strong>${company.name}</strong></td>
-          <td>${company.positioning}</td>
-          <td>${company.targetCustomers.join(", ")}</td>
-          <td>${company.differentiators.join(", ")}</td>
-          <td>${company.strengths.join(", ")}</td>
-          <td>${company.gaps.join(", ")}</td>
-        </tr>
-      `
-    )
-    .join("");
+  table.querySelector("thead").innerHTML = `<tr>${columns.map((column) => `<th>${escapeHtml(column)}</th>`).join("")}</tr>`;
+  const companies = state.dashboard?.companies || [];
+  table.querySelector("tbody").innerHTML = companies.length
+    ? companies
+        .map(
+          (company) => `
+            <tr>
+              <td><strong>${escapeHtml(company.name)}</strong></td>
+              <td>${escapeHtml(company.positioning || "Not available")}</td>
+              <td>${escapeHtml(company.targetCustomers.join(", ") || "Not available")}</td>
+              <td>${escapeHtml(company.differentiators.join(", ") || "Not available")}</td>
+              <td>${escapeHtml(company.strengths.join(", ") || "Not available")}</td>
+              <td>${escapeHtml(company.gaps.join(", ") || "Not available")}</td>
+            </tr>
+          `
+        )
+        .join("")
+    : `<tr><td colspan="${columns.length}">No comparison data is available yet.</td></tr>`;
 }
 
 function renderFeatureMatrix() {
   const table = document.getElementById("feature-matrix");
-  const features = Array.from(
-    new Set(dashboardData.companies.flatMap((company) => company.coreFeatures))
-  );
+  const companies = state.dashboard?.companies || [];
+  const features = Array.from(new Set(companies.flatMap((company) => company.coreFeatures)));
   table.querySelector("thead").innerHTML = `
     <tr>
       <th>Feature</th>
-      ${dashboardData.companies.map((company) => `<th>${company.name}</th>`).join("")}
+      ${companies.map((company) => `<th>${escapeHtml(company.name)}</th>`).join("")}
     </tr>
   `;
-  table.querySelector("tbody").innerHTML = features
-    .map(
-      (feature) => `
-        <tr>
-          <td><strong>${feature}</strong></td>
-          ${dashboardData.companies
-            .map((company) => {
-              const hasFeature = company.coreFeatures.includes(feature);
-              return `<td><span class="feature-cell ${hasFeature ? "" : "is-missing"}">${hasFeature ? "Supported" : "Not clear"}</span></td>`;
-            })
-            .join("")}
-        </tr>
-      `
-    )
-    .join("");
+  table.querySelector("tbody").innerHTML =
+    companies.length && features.length
+      ? features
+          .map(
+            (feature) => `
+              <tr>
+                <td><strong>${escapeHtml(feature)}</strong></td>
+                ${companies
+                  .map((company) => {
+                    const hasFeature = company.coreFeatures.includes(feature);
+                    return `<td><span class="feature-cell ${hasFeature ? "" : "is-missing"}">${hasFeature ? "Supported" : "Not clear"}</span></td>`;
+                  })
+                  .join("")}
+              </tr>
+            `
+          )
+          .join("")
+      : `<tr><td colspan="${Math.max(companies.length + 1, 2)}">No feature matrix is available yet.</td></tr>`;
 }
 
 function renderCharts() {
   const container = document.getElementById("chart-grid");
-  container.innerHTML = dashboardData.charts
-    .map((chart) => {
-      const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(chart.artifactSvg)}`;
-      return `
-        <article class="chart-card">
-          <p class="eyebrow">${chart.type}</p>
-          <h4>${chart.title}</h4>
-          <p class="muted-copy" style="margin:8px 0 14px;">${chart.description}</p>
-          <img src="${svgDataUrl}" alt="${chart.title}" />
-        </article>
-      `;
-    })
-    .join("");
+  const charts = state.dashboard?.charts || [];
+  container.innerHTML = charts.length
+    ? charts
+        .map((chart) => {
+          const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(chart.artifactSvg)}`;
+          return `
+            <article class="chart-card">
+              <p class="eyebrow">${escapeHtml(chart.type)}</p>
+              <h4>${escapeHtml(chart.title)}</h4>
+              <p class="muted-copy" style="margin:8px 0 14px;">${escapeHtml(chart.description || "Chart artifact generated from the approved session state.")}</p>
+              <img src="${svgDataUrl}" alt="${escapeAttribute(chart.title)}" />
+            </article>
+          `;
+        })
+        .join("")
+    : `<article class="chart-card"><p class="muted-copy">Charts will appear here when chart-ready data is available.</p></article>`;
 }
 
 function renderSources() {
   const container = document.getElementById("source-list");
-  container.innerHTML = dashboardData.sources
-    .map(
-      (source) => `
-        <article class="source-card">
-          <p class="eyebrow">${source.company}</p>
-          <h4><a href="${source.url}" target="_blank" rel="noreferrer">${source.title}</a></h4>
-          <p class="source-snippet">${source.snippet}</p>
-          <div class="source-meta">
-            <span class="meta-chip">${source.id}</span>
-            <span class="meta-chip">${source.sourceType.replaceAll("_", " ")}</span>
-          </div>
-        </article>
-      `
-    )
-    .join("");
+  const sources = state.dashboard?.sources || [];
+  container.innerHTML = sources.length
+    ? sources
+        .map(
+          (source) => `
+            <article class="source-card">
+              <p class="eyebrow">${escapeHtml(source.company || "Source")}</p>
+              <h4><a href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">${escapeHtml(source.title || source.id)}</a></h4>
+              <p class="source-snippet">${escapeHtml(source.snippet || "No source snippet available.")}</p>
+              <div class="source-meta">
+                <span class="meta-chip">${escapeHtml(source.id)}</span>
+                <span class="meta-chip">${escapeHtml((source.sourceType || "web").replaceAll("_", " "))}</span>
+              </div>
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="source-card"><p class="muted-copy">Source references will appear here once the approved dashboard is ready.</p></article>`;
 }
 
 function renderChatSuggestions() {
   const container = document.getElementById("chat-suggestions");
-  container.innerHTML = dashboardData.chatSuggestions
+  const suggestions = state.dashboard?.chatSuggestions || DEFAULT_CHAT_SUGGESTIONS;
+  container.innerHTML = suggestions
     .map(
       (suggestion) => `
         <button class="suggestion-card ghost-button" type="button" data-suggestion="${escapeAttribute(suggestion)}">
-          ${suggestion}
+          ${escapeHtml(suggestion)}
         </button>
       `
     )
@@ -563,7 +366,7 @@ function renderChatThread() {
       (item) => `
         <article class="chat-bubble ${item.role}">
           <strong>${item.role === "assistant" ? "Market Mapper" : "You"}</strong>
-          <p style="margin:8px 0 0;">${item.text}</p>
+          <p style="margin:8px 0 0;">${escapeHtml(item.text)}</p>
           ${
             item.references?.length
               ? `<p class="muted-copy" style="margin:10px 0 0;">Evidence: ${item.references
@@ -572,7 +375,7 @@ function renderChatThread() {
               : item.citations?.length
               ? `<p class="muted-copy" style="margin:10px 0 0;">Sources: ${item.citations
                   .map((citationId) => {
-                    const source = dashboardData.sources.find((entry) => entry.id === citationId);
+                    const source = (state.dashboard?.sources || []).find((entry) => entry.id === citationId);
                     return source
                       ? `<a href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">\`${escapeHtml(
                           citationId
@@ -582,7 +385,7 @@ function renderChatThread() {
                   .join(", ")}</p>`
               : ""
           }
-          ${item.uncertainty ? `<p class="warning-text" style="margin:8px 0 0;">${item.uncertainty}</p>` : ""}
+          ${item.uncertainty ? `<p class="warning-text" style="margin:8px 0 0;">${escapeHtml(item.uncertainty)}</p>` : ""}
         </article>
       `
     )
@@ -590,118 +393,58 @@ function renderChatThread() {
 }
 
 function renderMarkdownPreview() {
-  document.getElementById("markdown-preview").textContent = dashboardData.report.markdown;
+  document.getElementById("markdown-preview").textContent =
+    state.dashboard?.report.markdown || "Markdown export will appear here once the report is ready.";
 }
 
 async function handleChatSubmit(event) {
   event.preventDefault();
   const input = document.getElementById("chat-input");
   const question = input.value.trim();
-  if (!question) {
+  if (!question || !state.sessionId) {
     return;
   }
 
-  state.thread.push({ role: "user", text: question, citations: [], uncertainty: null });
+  state.thread.push({ role: "user", text: question, references: [], citations: [], uncertainty: null });
   renderChatThread();
   input.value = "";
-  const answer = await askSessionChat(question);
-  state.thread.push({
-    role: "assistant",
-    text: answer.answer,
-    references: answer.references || [],
-    citations: answer.citation_ids || [],
-    uncertainty: answer.uncertainty_note || null,
-  });
+
+  try {
+    const answer = await askSessionChat(question);
+    state.thread.push({
+      role: "assistant",
+      text: answer.answer,
+      references: answer.references || [],
+      citations: answer.citation_ids || [],
+      uncertainty: answer.uncertainty_note || null,
+    });
+  } catch (error) {
+    state.thread.push({
+      role: "assistant",
+      text: "I couldn't reach the session chat service for this dashboard.",
+      references: [],
+      citations: [],
+      uncertainty: error.message || "Please retry once the backend is available.",
+    });
+  }
   renderChatThread();
 }
 
 async function askSessionChat(question) {
-  try {
-    const response = await fetch("/api/chat/answer", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        session_id: dashboardData.session.id,
-        question,
-        approved_state: buildApprovedStatePayload(),
-      }),
-    });
-    if (!response.ok) {
-      throw new Error(`Chat request failed with status ${response.status}`);
-    }
-    return await response.json();
-  } catch (error) {
-    return fallbackSessionAnswer(question);
+  const response = await fetch("/api/chat/answer", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      session_id: state.sessionId,
+      question,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`Chat request failed with status ${response.status}`);
   }
-}
-
-function fallbackSessionAnswer(question) {
-  const normalized = question.toLowerCase();
-  if (normalized.includes("enterprise")) {
-    return {
-      answer:
-        "Zendesk looks strongest for enterprise support operations overall, with Intercom close behind where AI-first workflow clarity matters more than governance breadth.",
-      references: [
-        makeSourceReference("source_zendesk_home"),
-        makeClaimReference("claim_zendesk_enterprise_breadth"),
-        makeReportSectionReference("Structured Comparison"),
-      ],
-      citation_ids: ["source_zendesk_home", "source_intercom_home"],
-      uncertainty_note: null,
-    };
-  }
-  if (normalized.includes("pricing")) {
-    return {
-      answer:
-        "Freshworks is the most transparent on public pricing. Zendesk and Intercom expose meaningful packaging, but Forethought remains mostly sales-led, so that part of the comparison is less certain.",
-      references: [
-        makeClaimReference("claim_freshworks_public_pricing"),
-        makeSourceReference("source_freshworks_pricing"),
-        makeReportSectionReference("Structured Comparison"),
-      ],
-      citation_ids: ["source_freshworks_pricing", "source_zendesk_pricing", "source_intercom_pricing"],
-      uncertainty_note: "Pricing comparisons stay directional where sales-led packaging leaves public details incomplete.",
-    };
-  }
-  if (normalized.includes("uncertain") || normalized.includes("confidence")) {
-    return {
-      answer:
-        "Forethought has the thinnest public pricing coverage, and both Zendesk and Intercom still leave some deeper AI pricing details to sales conversations. Those are the biggest uncertainty pockets in this session.",
-      references: [
-        makeClaimReference("claim_forethought_sales_led_pricing"),
-        makeSourceReference("source_forethought_home"),
-        makeReportSectionReference("Key Takeaways"),
-      ],
-      citation_ids: ["source_forethought_home", "source_zendesk_pricing", "source_intercom_pricing"],
-      uncertainty_note: "This answer is based on public pages only, not private pricing or customer references.",
-    };
-  }
-  if (normalized.includes("differentiator")) {
-    return {
-      answer:
-        "Intercom differentiates on AI-forward product narrative, Zendesk on enterprise service breadth, Freshworks on approachable rollout and pricing clarity, and Forethought on specialist AI automation depth.",
-      references: [
-        makeClaimReference("claim_intercom_ai_narrative"),
-        makeClaimReference("claim_forethought_specialist_automation"),
-        makeReportSectionReference("Company Summaries"),
-      ],
-      citation_ids: ["source_intercom_ai", "source_zendesk_home", "source_freshworks_home", "source_forethought_platform"],
-      uncertainty_note: null,
-    };
-  }
-  return {
-    answer:
-      "Within this approved session state, the clearest answer is that Intercom and Zendesk lead overall, but they solve for different buying priorities. The dashboard sections above show where that conclusion is strong and where public evidence is thinner.",
-    references: [
-      makeSourceReference("source_intercom_home"),
-      makeSourceReference("source_zendesk_home"),
-      makeReportSectionReference("Executive Summary"),
-    ],
-    citation_ids: ["source_intercom_home", "source_zendesk_home"],
-    uncertainty_note: "This fallback answer is limited to the currently embedded dashboard state.",
-  };
+  return response.json();
 }
 
 function toggleTheme() {
@@ -729,7 +472,12 @@ function toggleChat() {
 }
 
 function downloadMarkdown() {
-  const blob = new Blob([dashboardData.report.markdown], { type: "text/markdown;charset=utf-8" });
+  const reportId = state.dashboard?.report.id;
+  if (reportId) {
+    window.location.href = `/api/reports/${encodeURIComponent(reportId)}/download`;
+    return;
+  }
+  const blob = new Blob([state.dashboard?.report.markdown || ""], { type: "text/markdown;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -738,244 +486,213 @@ function downloadMarkdown() {
   URL.revokeObjectURL(url);
 }
 
-function buildApprovedStatePayload() {
-  const now = new Date().toISOString();
+function renderAppState({ eyebrow, title, body, showRetry }) {
+  const panel = document.getElementById("app-state-panel");
+  panel.hidden = false;
+  document.getElementById("app-state-eyebrow").textContent = eyebrow;
+  document.getElementById("app-state-title").textContent = title;
+  document.getElementById("app-state-body").textContent = body;
+  document.getElementById("app-state-retry").hidden = !showRetry;
+}
+
+function hideAppState() {
+  document.getElementById("app-state-panel").hidden = true;
+}
+
+function showErrorState(title, body) {
+  state.loading = false;
+  state.error = body;
+  renderAppState({
+    eyebrow: "Unavailable",
+    title,
+    body,
+    showRetry: true,
+  });
+  renderDashboard();
+}
+
+function syncControlState() {
+  const disabled = state.loading || !state.dashboard;
+  document.getElementById("download-report").disabled = disabled;
+  document.getElementById("chat-input").disabled = disabled;
+  document.querySelector("#chat-form button[type='submit']").disabled = disabled;
+}
+
+function mapSnapshotToDashboard({ session, runStatus, snapshot }) {
+  const companyProfiles = snapshot.company_profiles || [];
+  const sources = (snapshot.source_documents || []).map((source) => ({
+    id: source.id,
+    title: source.title || source.id,
+    url: source.url,
+    snippet: source.snippet || "",
+    company: source.metadata?.company_name || "Source",
+    sourceType: source.source_type || "web",
+  }));
+  const companies = companyProfiles.map((profile) => ({
+    id: profile.id,
+    name: profile.name,
+    website: profile.website,
+    positioning: profile.positioning_statement || profile.product_summary || "No positioning summary available.",
+    targetCustomers: profile.target_customers || [],
+    pricingModel: profile.pricing_model || "Pricing not publicly disclosed",
+    publicPricingDetails: profile.public_pricing_details || [],
+    coreFeatures: profile.core_features || [],
+    integrations: profile.integrations || [],
+    differentiators: profile.differentiators || [],
+    strengths: profile.strengths || [],
+    gaps: profile.weaknesses_or_gaps || [],
+    confidence: profile.confidence || 0,
+    missing: profile.explicit_missing_fields || [],
+    sources: profile.source_document_ids || [],
+    claims: profile.claims || [],
+  }));
+  const charts = buildCharts(snapshot.chart_specs || [], companyProfiles, snapshot.comparison_result);
+  const reportSections = snapshot.report?.sections || [];
+  const keyTakeawaysSection = reportSections.find((section) => section.heading.toLowerCase() === "key takeaways");
+  const keyTakeaways = keyTakeawaysSection
+    ? parseBulletSection(keyTakeawaysSection.body)
+    : snapshot.comparison_result?.ideal_customer_notes || [];
+  const tradeoffs = snapshot.comparison_result?.tradeoffs || [];
+
   return {
-    session_id: dashboardData.session.id,
-    run_id: "run_demo_dashboard",
-    user_prompt: dashboardData.session.prompt,
-    research_plan: {
-      id: "plan_demo_dashboard",
-      market_query: dashboardData.plan.marketQuery,
-      requested_company_count: dashboardData.plan.requestedCompanyCount,
-      named_companies: [],
-      geography: null,
-      target_segment: null,
-      discovery_criteria: dashboardData.plan.discoveryCriteria,
-      comparison_dimensions: dashboardData.plan.comparisonDimensions,
-      required_outputs: ["dashboard", "markdown_report", "charts"],
-      assumptions: dashboardData.plan.assumptions,
-      created_at: now,
-      updated_at: now,
+    session: {
+      id: session.id,
+      prompt: session.user_prompt,
+      promptSummary: buildPromptSummary(snapshot, companies.length),
+      status: formatRunLabel(runStatus?.run.status || session.status || "pending"),
     },
-    dashboard_state: {
-      id: "dashboard_demo",
-      session_id: dashboardData.session.id,
-      run_id: "run_demo_dashboard",
-      executive_summary: dashboardData.executiveSummary,
-      selected_company_ids: dashboardData.companies.map((company) => company.id),
-      comparison_result_id: "comparison_demo",
-      report_id: "report_demo",
-      chart_ids: dashboardData.charts.map((chart) => chart.id),
-      source_document_ids: dashboardData.sources.map((source) => source.id),
-      sections: [
-        {
-          key: "summary",
-          title: "Summary",
-          summary: dashboardData.executiveSummary,
-          content_refs: [],
-        },
-        {
-          key: "sources",
-          title: "Sources",
-          summary: "Evidence behind the report",
-          content_refs: dashboardData.sources.map((source) => source.id),
-        },
-      ],
-      generated_at: now,
-      updated_at: now,
+    plan: {
+      marketQuery: snapshot.research_plan?.market_query || "Market research session",
+      requestedCompanyCount: snapshot.research_plan?.requested_company_count || companies.length,
+      discoveryCriteria: snapshot.research_plan?.discovery_criteria || [],
+      comparisonDimensions: (snapshot.research_plan?.comparison_dimensions || []).map(formatDimensionLabel),
+      assumptions: snapshot.research_plan?.assumptions || [],
     },
-    executive_summary: dashboardData.executiveSummary,
-    company_profiles: dashboardData.companies.map((company) => ({
-      id: company.id,
-      name: company.name,
-      website: company.website,
-      market_category: dashboardData.plan.marketQuery,
-      product_summary: company.positioning,
-      target_customers: company.targetCustomers,
-      core_features: company.coreFeatures,
-      ai_capabilities: company.coreFeatures.filter(
-        (feature) =>
-          feature.toLowerCase().includes("ai") || feature.toLowerCase().includes("agent")
-      ),
-      integrations: company.integrations,
-      pricing_model: company.pricingModel,
-      public_pricing_details: company.publicPricingDetails,
-      packaging_or_plans: [],
-      positioning_statement: company.positioning,
-      differentiators: company.differentiators,
-      customer_proof_points: [],
-      notable_public_metrics: {},
-      strengths: company.strengths,
-      weaknesses_or_gaps: company.gaps,
-      explicit_missing_fields: company.missing,
-      claims: buildDemoClaims(company),
-      source_document_ids: company.sources,
-      confidence: company.confidence,
-      updated_at: now,
+    executiveSummary:
+      snapshot.dashboard_state?.executive_summary ||
+      snapshot.executive_summary ||
+      snapshot.report?.executive_summary ||
+      "No executive summary is available yet.",
+    keyTakeaways,
+    tradeoffs,
+    companies,
+    comparisonFindings: (snapshot.comparison_result?.findings || []).map((finding) => ({
+      dimension: finding.dimension,
+      summary: finding.summary,
     })),
-    comparison_result: {
-      id: "comparison_demo",
-      run_id: "run_demo_dashboard",
-      company_ids: dashboardData.companies.map((company) => company.id),
-      dimensions: dashboardData.plan.comparisonDimensions.map((dimension) =>
-        dimension.replaceAll(" ", "_")
-      ),
-      findings: dashboardData.comparisonFindings.map((finding) => ({
-        dimension: finding.dimension,
-        summary: finding.summary,
-        winner_company_id: null,
-        evidence_claim_ids: [],
-        notes: [],
-      })),
-      similarities: ["All companies position AI as part of the support experience."],
-      differences: dashboardData.comparisonFindings.map((finding) => finding.summary),
-      tradeoffs: dashboardData.tradeoffs,
-      ideal_customer_notes: dashboardData.keyTakeaways,
-      generated_at: now,
-    },
+    charts,
     report: {
-      id: "report_demo",
-      run_id: "run_demo_dashboard",
-      title: dashboardData.report.title,
-      executive_summary: dashboardData.executiveSummary,
-      sections: [
-        {
-          heading: "Executive Summary",
-          body: dashboardData.executiveSummary,
-          citation_ids: dashboardData.sources.slice(0, 4).map((source) => source.id),
-        },
-        {
-          heading: "Company Summaries",
-          body: dashboardData.companies
-            .map((company) => `- ${company.name}: ${company.positioning}`)
-            .join("\n"),
-          citation_ids: dashboardData.companies.flatMap((company) => company.sources.slice(0, 1)),
-        },
-        {
-          heading: "Structured Comparison",
-          body: dashboardData.comparisonFindings
-            .map((finding) => `- ${finding.dimension}: ${finding.summary}`)
-            .join("\n"),
-          citation_ids: dashboardData.sources.slice(0, 8).map((source) => source.id),
-        },
-        {
-          heading: "Key Takeaways",
-          body: dashboardData.keyTakeaways.map((item) => `- ${item}`).join("\n"),
-          citation_ids: dashboardData.sources.slice(0, 4).map((source) => source.id),
-        },
-      ],
-      markdown_body: dashboardData.report.markdown,
-      source_document_ids: dashboardData.sources.map((source) => source.id),
-      artifact_id: null,
-      created_at: now,
+      id: snapshot.report?.id,
+      markdown: snapshot.report?.markdown_body || "",
     },
-    chart_specs: dashboardData.charts.map((chart) => ({
-      id: chart.id,
-      run_id: "run_demo_dashboard",
-      chart_type: chart.type,
-      title: chart.title,
-      description: chart.description,
-      data: [],
-      x_field: null,
-      y_field: null,
-      series_field: null,
-      comparison_result_id: "comparison_demo",
-      artifact_id: null,
-      created_at: now,
-    })),
-    source_documents: dashboardData.sources.map((source) => ({
-      id: source.id,
-      url: source.url,
-      title: source.title,
-      source_type: source.sourceType,
-      accessed_at: now,
-      snippet: source.snippet,
-      snapshot_artifact_id: null,
-      metadata: { company_name: source.company },
-    })),
-    approved_at: now,
+    sources,
+    chatSuggestions: buildChatSuggestions(snapshot),
   };
 }
 
-function buildDemoClaims(company) {
-  const claimMap = {
-    company_intercom: [
-      {
-        id: "claim_intercom_ai_narrative",
-        label: "AI-first positioning",
-        value: "Intercom presents a strongly AI-forward customer service narrative in public materials.",
-      },
-    ],
-    company_zendesk: [
-      {
-        id: "claim_zendesk_enterprise_breadth",
-        label: "Enterprise operations breadth",
-        value: "Zendesk shows the strongest public enterprise support operations breadth in this set.",
-      },
-    ],
-    company_freshworks: [
-      {
-        id: "claim_freshworks_public_pricing",
-        label: "Public pricing transparency",
-        value: "Freshworks provides the clearest public pricing structure among the compared companies.",
-      },
-    ],
-    company_forethought: [
-      {
-        id: "claim_forethought_sales_led_pricing",
-        label: "Sales-led pricing",
-        value: "Forethought does not show detailed public tier pricing and remains mostly sales-led.",
-      },
-      {
-        id: "claim_forethought_specialist_automation",
-        label: "Specialist automation depth",
-        value: "Forethought is positioned as a specialist in AI support automation rather than a broad suite.",
-      },
-    ],
-  };
-  return (claimMap[company.id] || []).map((claim) => ({
-    ...claim,
-    source_document_ids: company.sources.slice(0, 2),
-    confidence: company.confidence,
-    is_inference: false,
-    notes: null,
+function buildCharts(chartSpecs, companyProfiles, comparisonResult) {
+  return chartSpecs.map((chart) => ({
+    id: chart.id,
+    title: chart.title,
+    description: chart.description,
+    type: chart.chart_type,
+    artifactSvg: renderChartSvg(chart, companyProfiles, comparisonResult),
   }));
 }
 
-function makeSourceReference(sourceId) {
-  const source = dashboardData.sources.find((entry) => entry.id === sourceId);
-  return {
-    reference_type: "source",
-    reference_id: sourceId,
-    label: source?.title || sourceId,
-    url: source?.url || null,
-    snippet: source?.snippet || null,
-  };
+function renderChartSvg(chart, companyProfiles, comparisonResult) {
+  if (chart.chart_type === "heatmap") {
+    const columns = chart.data?.[0]?.columns;
+    const rows = chart.data?.[0]?.rows;
+    if (columns && rows) {
+      return createHeatmapSvg({
+        title: chart.title,
+        columns,
+        rows,
+      });
+    }
+    return createHeatmapSvg({
+      title: chart.title,
+      columns: ["Coverage"],
+      rows: companyProfiles.map((profile) => ({
+        label: profile.name,
+        values: [Math.max(profile.confidence || 0, 0.1)],
+      })),
+    });
+  }
+
+  const barData =
+    chart.data?.length
+      ? chart.data.map((row) => ({
+          label: String(row.label ?? row.name ?? row.company ?? row[chart.x_field] ?? "Value"),
+          value: Number(row.value ?? row.score ?? row[chart.y_field] ?? 0),
+        }))
+      : inferBarDataFromChart(chart, companyProfiles, comparisonResult);
+
+  return createBarChartSvg({
+    title: chart.title,
+    data: barData.length ? barData : [{ label: "No data", value: 0 }],
+    valueSuffix: "",
+  });
 }
 
-function makeClaimReference(claimId) {
-  const claim = buildApprovedStatePayload()
-    .company_profiles.flatMap((profile) => profile.claims)
-    .find((entry) => entry.id === claimId);
-  return {
-    reference_type: "claim",
-    reference_id: claimId,
-    label: claim?.label || claimId,
-    url: null,
-    snippet: claim?.value || null,
-  };
+function inferBarDataFromChart(chart, companyProfiles, comparisonResult) {
+  const title = (chart.title || "").toLowerCase();
+  if (title.includes("confidence")) {
+    return companyProfiles.map((profile) => ({
+      label: profile.name,
+      value: profile.confidence || 0,
+    }));
+  }
+  if (title.includes("source")) {
+    return companyProfiles.map((profile) => ({
+      label: profile.name,
+      value: (profile.source_document_ids || []).length,
+    }));
+  }
+  if (title.includes("pricing")) {
+    return companyProfiles.map((profile) => ({
+      label: profile.name,
+      value: (profile.public_pricing_details || []).length,
+    }));
+  }
+  return (comparisonResult?.company_ids || []).map((companyId) => ({
+    label: companyProfiles.find((profile) => profile.id === companyId)?.name || companyId,
+    value: 1,
+  }));
 }
 
-function makeReportSectionReference(heading) {
-  const section = buildApprovedStatePayload().report.sections.find((entry) => entry.heading === heading);
-  return {
-    reference_type: "report_section",
-    reference_id: heading,
-    label: heading,
-    url: null,
-    snippet: section?.body || null,
-  };
+function buildPromptSummary(snapshot, companyCount) {
+  const market = snapshot.research_plan?.market_query || "the selected market";
+  return `This session analyzes ${companyCount} companies in ${market} using approved research, extracted claims, comparison findings, and source-backed reporting.`;
+}
+
+function buildChatSuggestions(snapshot) {
+  const companies = (snapshot.company_profiles || []).slice(0, 2).map((profile) => profile.name);
+  if (!companies.length) {
+    return DEFAULT_CHAT_SUGGESTIONS;
+  }
+  return [
+    `Which company looks strongest overall in ${snapshot.research_plan?.market_query || "this market"}?`,
+    `How do ${companies.join(" and ")} differ on positioning?`,
+    "Which claims in this dashboard are the least certain?",
+  ];
+}
+
+function parseBulletSection(body) {
+  return String(body || "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "))
+    .map((line) => line.slice(2));
+}
+
+function formatRunLabel(status) {
+  return String(status).replaceAll("_", " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatDimensionLabel(value) {
+  return String(value).replaceAll("_", " ");
 }
 
 function formatChatReference(reference) {
@@ -996,14 +713,57 @@ function formatChatReference(reference) {
   return escapeHtml(reference.reference_id);
 }
 
+function resolveSessionId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("session_id") || localStorage.getItem("market-mapper-session-id");
+}
+
+function storeSessionId(sessionId) {
+  localStorage.setItem("market-mapper-session-id", sessionId);
+  const url = new URL(window.location.href);
+  url.searchParams.set("session_id", sessionId);
+  window.history.replaceState({}, "", url);
+}
+
+function isRunPending(status) {
+  return ["pending", "running", "waiting_for_approval"].includes(String(status));
+}
+
+function buildRunProgressMessage(runStatus) {
+  const progress = runStatus.progress;
+  return `${formatRunLabel(runStatus.run.status)} at ${progress.percent_complete}% complete. Current step: ${
+    progress.current_node || "starting"
+  }.`;
+}
+
+async function fetchRunStatus(runId) {
+  return fetchJson(`/api/runs/${encodeURIComponent(runId)}`);
+}
+
+async function fetchJson(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    const error = new Error(`Request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 function populateList(elementId, items) {
-  document.getElementById(elementId).innerHTML = items.map((item) => `<li>${item}</li>`).join("");
+  document.getElementById(elementId).innerHTML = items.length
+    ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
+    : `<li class="muted-copy">No data available.</li>`;
 }
 
 function populateTagList(elementId, items) {
-  document.getElementById(elementId).innerHTML = items
-    .map((item) => `<li>${item}</li>`)
-    .join("");
+  document.getElementById(elementId).innerHTML = items.length
+    ? items.map((item) => `<li>${escapeHtml(item)}</li>`).join("")
+    : `<li class="muted-copy">No dimensions available.</li>`;
 }
 
 function createBarChartSvg({ title, data, valueSuffix }) {
@@ -1025,8 +785,8 @@ function createBarChartSvg({ title, data, valueSuffix }) {
       const y = top + chartHeight - barHeight;
       return `
         <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" rx="6" fill="#69b34c" />
-        <text x="${x + barWidth / 2}" y="${y - 10}" text-anchor="middle" font-size="12" fill="#2d3748">${item.value}${valueSuffix}</text>
-        <text x="${x + barWidth / 2}" y="${height - 20}" text-anchor="middle" font-size="12" fill="#4a5568">${item.label}</text>
+        <text x="${x + barWidth / 2}" y="${y - 10}" text-anchor="middle" font-size="12" fill="#2d3748">${escapeHtml(item.value)}${escapeHtml(valueSuffix)}</text>
+        <text x="${x + barWidth / 2}" y="${height - 20}" text-anchor="middle" font-size="12" fill="#4a5568">${escapeHtml(item.label)}</text>
       `;
     })
     .join("");
