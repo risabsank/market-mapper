@@ -65,7 +65,13 @@ class SessionChatRequest(MarketMapperModel):
 
     session_id: str
     question: str
-    approved_state: ApprovedSessionSnapshot | None = None
+
+
+class DemoSessionChatRequest(MarketMapperModel):
+    """Demo-only chat payload that carries an inline approved snapshot."""
+
+    question: str
+    approved_state: ApprovedSessionSnapshot
 
 
 class SessionStateService:
@@ -114,6 +120,12 @@ class SessionStateService:
 
     def resolve_chat_request(self, request: SessionChatRequest) -> ApprovedSessionSnapshot:
         return self.load_approved_snapshot(request.session_id)
+
+    def resolve_demo_chat_request(
+        self,
+        request: DemoSessionChatRequest,
+    ) -> ApprovedSessionSnapshot:
+        return request.approved_state
 
     def _write_model(self, path: Path, model: MarketMapperModel) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)

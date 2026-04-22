@@ -7,7 +7,10 @@ from .openai_service import (
     render_agent_input,
 )
 from .workflow_service import (
+    ApprovedDashboardPayload,
+    ArtifactLink,
     DashboardNotReadyError,
+    ChartArtifactPayload,
     RunNotFoundError,
     RunStatusResponse,
     SessionNotFoundError,
@@ -16,6 +19,9 @@ from .workflow_service import (
 )
 
 __all__ = [
+    "ApprovedDashboardPayload",
+    "ArtifactLink",
+    "ChartArtifactPayload",
     "DashboardNotReadyError",
     "OpenAIConfigurationError",
     "RunNotFoundError",

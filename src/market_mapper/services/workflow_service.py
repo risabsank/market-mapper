@@ -7,7 +7,7 @@ from pathlib import Path
 from pydantic import Field
 
 from market_mapper.config.settings import get_settings
-from market_mapper.schemas.models import DashboardState, ResearchSession, WorkflowRun
+from market_mapper.schemas.models import DashboardState, ResearchSession, SandboxArtifact, WorkflowRun
 from market_mapper.schemas.models.common import MarketMapperModel, RunStatus
 from market_mapper.services.session_service import ApprovedSessionSnapshot, SessionStateService
 from market_mapper.storage import FileWorkflowStateStore
@@ -45,6 +45,36 @@ class RunStatusResponse(MarketMapperModel):
 
     run: WorkflowRun
     progress: RunProgress
+
+
+class ArtifactLink(MarketMapperModel):
+    """API-safe artifact metadata plus retrieval URL."""
+
+    artifact_id: str
+    kind: str
+    label: str
+    content_type: str | None = None
+    url: str
+
+
+class ChartArtifactPayload(MarketMapperModel):
+    """Chart spec plus its served artifact when available."""
+
+    chart_id: str
+    title: str
+    chart_type: str
+    description: str | None = None
+    artifact: ArtifactLink | None = None
+
+
+class ApprovedDashboardPayload(MarketMapperModel):
+    """Approved dashboard snapshot enriched with artifact URLs."""
+
+    snapshot: ApprovedSessionSnapshot
+    report_download_url: str
+    report_artifact: ArtifactLink | None = None
+    dashboard_artifact: ArtifactLink | None = None
+    chart_artifacts: list[ChartArtifactPayload] = Field(default_factory=list)
 
 
 class WorkflowService:
@@ -123,6 +153,28 @@ class WorkflowService:
         except FileNotFoundError as exc:
             raise DashboardNotReadyError(session_id) from exc
 
+    def get_approved_dashboard_payload(self, session_id: str) -> ApprovedDashboardPayload:
+        snapshot = self.get_approved_dashboard(session_id)
+        report_artifact = self._artifact_link(snapshot.report.artifact_id)
+        dashboard_artifact = self._dashboard_artifact_link(snapshot.run_id)
+        chart_artifacts = [
+            ChartArtifactPayload(
+                chart_id=chart_spec.id,
+                title=chart_spec.title,
+                chart_type=chart_spec.chart_type,
+                description=chart_spec.description,
+                artifact=self._artifact_link(chart_spec.artifact_id),
+            )
+            for chart_spec in snapshot.chart_specs
+        ]
+        return ApprovedDashboardPayload(
+            snapshot=snapshot,
+            report_download_url=f"/api/reports/{snapshot.report.id}/download",
+            report_artifact=report_artifact,
+            dashboard_artifact=dashboard_artifact,
+            chart_artifacts=chart_artifacts,
+        )
+
     def get_dashboard_state(self, session_id: str) -> DashboardState:
         session = self.get_session(session_id)
         if not session.dashboard_state_id:
@@ -151,6 +203,12 @@ class WorkflowService:
             if artifact and artifact.path and Path(artifact.path).exists():
                 return artifact.path, artifact.content_type
         return report.markdown_body, "text/markdown; charset=utf-8"
+
+    def get_artifact(self, artifact_id: str) -> SandboxArtifact:
+        try:
+            return self.state_store.load_artifact("", artifact_id)
+        except FileNotFoundError as exc:
+            raise DashboardNotReadyError(artifact_id) from exc
 
     def _persist_state(self, state: ResearchWorkflowState) -> None:
         if state.dashboard_state is not None:
@@ -183,3 +241,32 @@ class WorkflowService:
             current_node=run.current_node,
             percent_complete=percent_complete,
         )
+
+    def _artifact_link(self, artifact_id: str | None) -> ArtifactLink | None:
+        if not artifact_id:
+            return None
+        try:
+            artifact = self.get_artifact(artifact_id)
+        except DashboardNotReadyError:
+            return None
+        return ArtifactLink(
+            artifact_id=artifact.id,
+            kind=artifact.kind.value if hasattr(artifact.kind, "value") else str(artifact.kind),
+            label=artifact.label,
+            content_type=artifact.content_type,
+            url=f"/api/artifacts/{artifact.id}",
+        )
+
+    def _dashboard_artifact_link(self, run_id: str) -> ArtifactLink | None:
+        artifacts = self.state_store.list_artifacts_for_run(run_id)
+        for artifact in reversed(artifacts):
+            artifact_kind = artifact.kind.value if hasattr(artifact.kind, "value") else str(artifact.kind)
+            if artifact_kind == "dashboard_preview":
+                return ArtifactLink(
+                    artifact_id=artifact.id,
+                    kind=artifact_kind,
+                    label=artifact.label,
+                    content_type=artifact.content_type,
+                    url=f"/api/artifacts/{artifact.id}",
+                )
+        return None

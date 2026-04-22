@@ -81,11 +81,11 @@ async function loadDashboard() {
     ? await fetchRunStatus(state.session.active_run_id)
     : null;
 
-  const snapshot = await waitForApprovedDashboard(sessionId);
+  const payload = await waitForApprovedDashboard(sessionId);
   state.dashboard = mapSnapshotToDashboard({
     session: state.session,
     runStatus: state.runStatus,
-    snapshot,
+    payload,
   });
   state.thread = [
     {
@@ -159,8 +159,10 @@ function renderDashboard() {
   renderFeatureMatrix();
   renderCharts();
   renderSources();
+  renderDashboardSections();
   renderChatSuggestions();
   renderChatThread();
+  renderReportSections();
   renderMarkdownPreview();
   syncControlState();
 }
@@ -303,13 +305,15 @@ function renderCharts() {
   container.innerHTML = charts.length
     ? charts
         .map((chart) => {
-          const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(chart.artifactSvg)}`;
+          const chartImage = chart.artifactUrl
+            ? `<img src="${escapeAttribute(chart.artifactUrl)}" alt="${escapeAttribute(chart.title)}" />`
+            : `<img src="data:image/svg+xml;charset=utf-8,${encodeURIComponent(chart.artifactSvg)}" alt="${escapeAttribute(chart.title)}" />`;
           return `
             <article class="chart-card">
               <p class="eyebrow">${escapeHtml(chart.type)}</p>
               <h4>${escapeHtml(chart.title)}</h4>
               <p class="muted-copy" style="margin:8px 0 14px;">${escapeHtml(chart.description || "Chart artifact generated from the approved session state.")}</p>
-              <img src="${svgDataUrl}" alt="${escapeAttribute(chart.title)}" />
+              ${chartImage}
             </article>
           `;
         })
@@ -397,6 +401,56 @@ function renderMarkdownPreview() {
     state.dashboard?.report.markdown || "Markdown export will appear here once the report is ready.";
 }
 
+function renderDashboardSections() {
+  const container = document.getElementById("dashboard-sections");
+  const sections = state.dashboard?.dashboardSections || [];
+  container.innerHTML = sections.length
+    ? sections
+        .map(
+          (section) => `
+            <article class="section-card">
+              <p class="eyebrow">${escapeHtml(section.key)}</p>
+              <h4>${escapeHtml(section.title)}</h4>
+              <p class="muted-copy">${escapeHtml(section.summary || "No section summary available.")}</p>
+              ${
+                section.contentRefs?.length
+                  ? `<p class="muted-copy" style="margin-top:10px;">References: ${section.contentRefs
+                      .map((ref) => escapeHtml(ref))
+                      .join(", ")}</p>`
+                  : ""
+              }
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="section-card"><p class="muted-copy">Saved dashboard sections will appear here once the dashboard builder has run.</p></article>`;
+}
+
+function renderReportSections() {
+  const container = document.getElementById("report-sections");
+  const sections = state.dashboard?.report.sections || [];
+  container.innerHTML = sections.length
+    ? sections
+        .map(
+          (section) => `
+            <article class="section-card">
+              <p class="eyebrow">Report Section</p>
+              <h4>${escapeHtml(section.heading)}</h4>
+              <p class="muted-copy">${escapeHtml(section.body || "No report section body available.")}</p>
+              ${
+                section.citationIds?.length
+                  ? `<p class="muted-copy" style="margin-top:10px;">Citations: ${section.citationIds
+                      .map((citationId) => escapeHtml(citationId))
+                      .join(", ")}</p>`
+                  : ""
+              }
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="section-card"><p class="muted-copy">Approved report sections will appear here once the report is generated.</p></article>`;
+}
+
 async function handleChatSubmit(event) {
   event.preventDefault();
   const input = document.getElementById("chat-input");
@@ -472,9 +526,9 @@ function toggleChat() {
 }
 
 function downloadMarkdown() {
-  const reportId = state.dashboard?.report.id;
-  if (reportId) {
-    window.location.href = `/api/reports/${encodeURIComponent(reportId)}/download`;
+  const reportDownloadUrl = state.dashboard?.report.downloadUrl;
+  if (reportDownloadUrl) {
+    window.location.href = reportDownloadUrl;
     return;
   }
   const blob = new Blob([state.dashboard?.report.markdown || ""], { type: "text/markdown;charset=utf-8" });
@@ -518,7 +572,8 @@ function syncControlState() {
   document.querySelector("#chat-form button[type='submit']").disabled = disabled;
 }
 
-function mapSnapshotToDashboard({ session, runStatus, snapshot }) {
+function mapSnapshotToDashboard({ session, runStatus, payload }) {
+  const snapshot = payload.snapshot;
   const companyProfiles = snapshot.company_profiles || [];
   const sources = (snapshot.source_documents || []).map((source) => ({
     id: source.id,
@@ -546,7 +601,12 @@ function mapSnapshotToDashboard({ session, runStatus, snapshot }) {
     sources: profile.source_document_ids || [],
     claims: profile.claims || [],
   }));
-  const charts = buildCharts(snapshot.chart_specs || [], companyProfiles, snapshot.comparison_result);
+  const charts = buildCharts(
+    snapshot.chart_specs || [],
+    payload.chart_artifacts || [],
+    companyProfiles,
+    snapshot.comparison_result
+  );
   const reportSections = snapshot.report?.sections || [];
   const keyTakeawaysSection = reportSections.find((section) => section.heading.toLowerCase() === "key takeaways");
   const keyTakeaways = keyTakeawaysSection
@@ -584,18 +644,36 @@ function mapSnapshotToDashboard({ session, runStatus, snapshot }) {
     report: {
       id: snapshot.report?.id,
       markdown: snapshot.report?.markdown_body || "",
+      downloadUrl: payload.report_download_url,
+      sections: reportSections.map((section) => ({
+        heading: section.heading,
+        body: section.body,
+        citationIds: section.citation_ids || [],
+      })),
     },
     sources,
     chatSuggestions: buildChatSuggestions(snapshot),
+    dashboardSections: (snapshot.dashboard_state?.sections || []).map((section) => ({
+      key: section.key,
+      title: section.title,
+      summary: section.summary,
+      contentRefs: section.content_refs || [],
+    })),
+    dashboardArtifactUrl: payload.dashboard_artifact?.url || null,
+    reportArtifactUrl: payload.report_artifact?.url || null,
   };
 }
 
-function buildCharts(chartSpecs, companyProfiles, comparisonResult) {
+function buildCharts(chartSpecs, chartArtifacts, companyProfiles, comparisonResult) {
+  const chartArtifactsById = Object.fromEntries(
+    chartArtifacts.map((artifact) => [artifact.chart_id, artifact])
+  );
   return chartSpecs.map((chart) => ({
     id: chart.id,
     title: chart.title,
     description: chart.description,
     type: chart.chart_type,
+    artifactUrl: chartArtifactsById[chart.id]?.artifact?.url || null,
     artifactSvg: renderChartSvg(chart, companyProfiles, comparisonResult),
   }));
 }

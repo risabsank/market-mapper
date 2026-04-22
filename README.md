@@ -111,6 +111,10 @@ The right-side session chatbot sends approved session state to:
 
 - `POST /api/chat/answer`
 
+Normal chat requests are locked to server-approved state and should send only `session_id` plus the question. If you need an inline-state harness for local UI/demo work, use:
+
+- `POST /api/chat/demo-answer`
+
 New backend routes now available:
 
 - `POST /api/sessions` to create a research session from a prompt
@@ -118,6 +122,7 @@ New backend routes now available:
 - `POST /api/sessions/{session_id}/runs` to start a workflow run
 - `GET /api/runs/{run_id}` to inspect run status and progress
 - `GET /api/sessions/{session_id}/dashboard` to fetch the approved dashboard payload
+- `GET /api/artifacts/{artifact_id}` to serve persisted chart, dashboard, and other sandbox artifacts
 - `GET /api/reports/{report_id}` to fetch the generated report object
 - `GET /api/reports/{report_id}/download` to download the Markdown report artifact
 

@@ -5,7 +5,12 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 
 from market_mapper.agents.session_chatbot import answer_session_question
-from market_mapper.services.session_service import SessionChatAnswer, SessionChatRequest, SessionStateService
+from market_mapper.services.session_service import (
+    DemoSessionChatRequest,
+    SessionChatAnswer,
+    SessionChatRequest,
+    SessionStateService,
+)
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -22,6 +27,18 @@ def answer_chat_question(request: SessionChatRequest) -> SessionChatAnswer:
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    return answer_session_question(
+        approved_state=approved_state,
+        question=request.question,
+    )
+
+
+@router.post("/demo-answer", response_model=SessionChatAnswer)
+def answer_demo_chat_question(request: DemoSessionChatRequest) -> SessionChatAnswer:
+    """Answer a follow-up question from inline approved state for local demo use only."""
+
+    service = SessionStateService()
+    approved_state = service.resolve_demo_chat_request(request)
     return answer_session_question(
         approved_state=approved_state,
         question=request.question,

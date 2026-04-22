@@ -570,6 +570,27 @@ th {
   gap: 12px;
 }
 
+.section-card-list {
+  display: grid;
+  gap: 12px;
+}
+
+.section-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-muted);
+}
+
+.section-card h4,
+.section-card p {
+  margin: 0;
+}
+
+.section-card .muted-copy {
+  margin-top: 8px;
+}
+
 .source-card p,
 .source-card h4,
 .pricing-card p,

@@ -8,13 +8,12 @@ from pydantic import Field
 from market_mapper.schemas.models import ResearchSession
 from market_mapper.schemas.models.common import MarketMapperModel
 from market_mapper.services import (
+    ApprovedDashboardPayload,
     DashboardNotReadyError,
     SessionNotFoundError,
     WorkflowService,
     WorkflowServiceError,
 )
-from market_mapper.services.session_service import ApprovedSessionSnapshot
-
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
 
 
@@ -46,13 +45,13 @@ def get_session(session_id: str) -> ResearchSession:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}") from exc
 
 
-@router.get("/{session_id}/dashboard", response_model=ApprovedSessionSnapshot)
-def get_dashboard(session_id: str) -> ApprovedSessionSnapshot:
+@router.get("/{session_id}/dashboard", response_model=ApprovedDashboardPayload)
+def get_dashboard(session_id: str) -> ApprovedDashboardPayload:
     """Fetch the approved dashboard payload for a completed session."""
 
     service = WorkflowService()
     try:
-        return service.get_approved_dashboard(session_id)
+        return service.get_approved_dashboard_payload(session_id)
     except DashboardNotReadyError as exc:
         raise HTTPException(
             status_code=404,
