@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.structured_extraction import run_structured_extraction
 from market_mapper.workflow.contracts import StructuredExtractionNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -24,6 +28,25 @@ def structured_extraction_node(state: ResearchWorkflowState) -> ResearchWorkflow
             source_documents=state.source_documents,
             existing_profiles=state.company_profiles,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="structured_extraction",
+        target_agent_task=task,
+        payload={
+            "company_candidates": [
+                candidate.model_dump(mode="json")
+                for candidate in state.company_candidates
+            ],
+            "source_documents": [
+                document.model_dump(mode="json")
+                for document in state.source_documents
+            ],
+            "company_profiles": [
+                profile.model_dump(mode="json")
+                for profile in node_output.company_profiles
+            ],
+        },
     )
     state.company_profiles = node_output.company_profiles
     state.run.current_node = "structured_extraction"

@@ -118,6 +118,16 @@ class FileWorkflowStateStore:
             sandbox_task,
         )
 
+    def list_sandbox_tasks_for_run(self, run_id: str) -> list[SandboxTask]:
+        tasks = [
+            self._read_model(path, SandboxTask)
+            for path in self.sandbox_tasks_dir.glob("*.json")
+        ]
+        return sorted(
+            (task for task in tasks if task.run_id == run_id),
+            key=lambda task: task.created_at,
+        )
+
     def add_artifact(self, run_id: str, artifact: SandboxArtifact) -> WorkflowRun:
         run = self.load_run(run_id)
         run.add_artifact(artifact.id)
@@ -139,6 +149,19 @@ class FileWorkflowStateStore:
         return self._read_model(
             self.artifacts_dir / f"{artifact_id}.json",
             SandboxArtifact,
+        )
+
+    def save_artifact(self, artifact: SandboxArtifact) -> None:
+        self._write_model(self.artifacts_dir / f"{artifact.id}.json", artifact)
+
+    def list_artifacts_for_run(self, run_id: str) -> list[SandboxArtifact]:
+        artifacts = [
+            self._read_model(path, SandboxArtifact)
+            for path in self.artifacts_dir.glob("*.json")
+        ]
+        return sorted(
+            (artifact for artifact in artifacts if artifact.run_id == run_id),
+            key=lambda artifact: artifact.created_at,
         )
 
     def approve_run(self, run_id: str, approval: ApprovalRecord) -> WorkflowRun:

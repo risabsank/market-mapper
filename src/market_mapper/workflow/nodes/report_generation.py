@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.report_generation import run_report_generation
 from market_mapper.workflow.contracts import ReportGenerationNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -25,6 +29,12 @@ def report_generation_node(state: ResearchWorkflowState) -> ResearchWorkflowStat
             comparison_result=state.comparison_result,
             source_documents=state.source_documents,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="report_generation",
+        target_agent_task=task,
+        payload=node_output.report.model_dump(mode="json"),
     )
     state.report = node_output.report
     state.run.current_node = "report_generation"

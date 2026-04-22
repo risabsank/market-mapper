@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.web_research import run_web_research
 from market_mapper.workflow.contracts import WebResearchNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -24,6 +28,22 @@ def web_research_node(state: ResearchWorkflowState) -> ResearchWorkflowState:
             company_candidates=state.company_candidates,
             existing_documents=state.source_documents,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="web_research",
+        target_agent_task=task,
+        payload={
+            "research_plan": state.session.research_plan.model_dump(mode="json"),
+            "company_candidates": [
+                candidate.model_dump(mode="json")
+                for candidate in state.company_candidates
+            ],
+            "source_documents": [
+                document.model_dump(mode="json")
+                for document in node_output.source_documents
+            ],
+        },
     )
     state.source_documents = node_output.source_documents
     state.run.current_node = "web_research"

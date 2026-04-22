@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from market_mapper.schemas.models import AgentTask
+from market_mapper.schemas.models import AgentTask, SandboxArtifact
+from market_mapper.sandbox import SandboxService
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -54,3 +55,29 @@ def fail_agent_task(
     state.run.add_task(task)
     state.run.mark_failed(error_message)
     state.touch()
+
+
+def execute_sandbox_for_route(
+    state: ResearchWorkflowState,
+    *,
+    route_name: str,
+    target_agent_task: AgentTask,
+    payload: dict,
+) -> list[SandboxArtifact]:
+    """Execute pending sandbox tasks for a route and attach emitted artifacts."""
+
+    service = SandboxService()
+    artifacts = service.execute_route_tasks(
+        state=state,
+        route_name=route_name,
+        payload=payload,
+        target_agent_task_id=target_agent_task.id,
+    )
+    for sandbox_task in state.sandbox_tasks:
+        if sandbox_task.route_name == route_name and sandbox_task.id not in target_agent_task.sandbox_task_ids:
+            target_agent_task.add_sandbox_task(sandbox_task.id)
+    for artifact in artifacts:
+        target_agent_task.add_artifact(artifact.id)
+    state.run.add_task(target_agent_task)
+    state.touch()
+    return artifacts

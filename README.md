@@ -131,12 +131,12 @@ Implemented so far:
 - durable file-backed workflow state store
 - LangGraph workflow skeleton with planner/executor routing
 - OpenAI-powered specialist agent layer using structured outputs
+- trusted-harness sandbox layer with route-specific sandbox tasks and artifact generation
 
 Not implemented yet:
 
 - real backend API endpoints
 - real frontend dashboard
-- full sandbox runtime integration
 - actual browser automation and extraction plumbing behind the web research path
 
 ## Running Tests

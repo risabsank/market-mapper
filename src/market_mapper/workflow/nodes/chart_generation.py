@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.chart_generation import run_chart_generation
 from market_mapper.workflow.contracts import ChartGenerationNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -25,6 +29,18 @@ def chart_generation_node(state: ResearchWorkflowState) -> ResearchWorkflowState
             existing_artifacts=state.sandbox_artifacts,
             existing_sandbox_tasks=state.sandbox_tasks,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="chart_generation",
+        target_agent_task=task,
+        payload={
+            "comparison_result": state.comparison_result.model_dump(mode="json"),
+            "chart_specs": [
+                chart.model_dump(mode="json")
+                for chart in node_output.chart_specs
+            ],
+        },
     )
     state.chart_specs = node_output.chart_specs
     state.run.current_node = "chart_generation"

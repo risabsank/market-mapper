@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.dashboard_builder import run_dashboard_builder
 from market_mapper.workflow.contracts import DashboardBuilderNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -30,6 +34,12 @@ def dashboard_builder_node(state: ResearchWorkflowState) -> ResearchWorkflowStat
             chart_specs=state.chart_specs,
             source_documents=state.source_documents,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="dashboard_builder",
+        target_agent_task=task,
+        payload=node_output.dashboard_state.model_dump(mode="json"),
     )
     state.dashboard_state = node_output.dashboard_state
     state.session.attach_dashboard(state.dashboard_state.id)

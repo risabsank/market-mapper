@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from market_mapper.agents.critic_verifier import run_critic_verifier
 from market_mapper.workflow.contracts import CriticVerifierNodeInput
-from market_mapper.workflow.helpers import complete_agent_task, start_agent_task
+from market_mapper.workflow.helpers import (
+    complete_agent_task,
+    execute_sandbox_for_route,
+    start_agent_task,
+)
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -24,6 +28,19 @@ def critic_verifier_node(state: ResearchWorkflowState) -> ResearchWorkflowState:
             company_profiles=state.company_profiles,
             comparison_result=state.comparison_result,
         )
+    )
+    execute_sandbox_for_route(
+        state,
+        route_name="critic_verifier",
+        target_agent_task=task,
+        payload={
+            "company_profiles": [
+                profile.model_dump(mode="json")
+                for profile in state.company_profiles
+            ],
+            "comparison_result": state.comparison_result.model_dump(mode="json"),
+            "verification_result": node_output.verification_result.model_dump(mode="json"),
+        },
     )
     state.verification_result = node_output.verification_result
     state.run.current_node = "critic_verifier"
