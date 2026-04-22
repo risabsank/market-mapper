@@ -113,10 +113,6 @@ class SessionStateService:
         )
 
     def resolve_chat_request(self, request: SessionChatRequest) -> ApprovedSessionSnapshot:
-        if request.approved_state is not None:
-            if request.approved_state.session_id != request.session_id:
-                raise ValueError("approved_state.session_id must match session_id")
-            return request.approved_state
         return self.load_approved_snapshot(request.session_id)
 
     def _write_model(self, path: Path, model: MarketMapperModel) -> None:

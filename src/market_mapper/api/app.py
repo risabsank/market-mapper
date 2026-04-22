@@ -9,7 +9,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from market_mapper.api.routes import chat_router
+from market_mapper.api.routes import (
+    chat_router,
+    reports_router,
+    runs_router,
+    sessions_router,
+)
 
 
 def create_app() -> FastAPI:
@@ -24,6 +29,9 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(chat_router)
+    app.include_router(sessions_router)
+    app.include_router(runs_router)
+    app.include_router(reports_router)
 
     frontend_dir = Path(__file__).resolve().parents[3] / "frontend"
     if frontend_dir.exists():

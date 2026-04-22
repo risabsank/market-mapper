@@ -111,6 +111,16 @@ The right-side session chatbot sends approved session state to:
 
 - `POST /api/chat/answer`
 
+New backend routes now available:
+
+- `POST /api/sessions` to create a research session from a prompt
+- `GET /api/sessions/{session_id}` to fetch session metadata
+- `POST /api/sessions/{session_id}/runs` to start a workflow run
+- `GET /api/runs/{run_id}` to inspect run status and progress
+- `GET /api/sessions/{session_id}/dashboard` to fetch the approved dashboard payload
+- `GET /api/reports/{report_id}` to fetch the generated report object
+- `GET /api/reports/{report_id}/download` to download the Markdown report artifact
+
 When the dashboard is served through the API app, the chatbot uses the OpenAI-backed session chat route. If the HTML file is opened directly without the backend running, the sidebar falls back to a local demo responder based on the embedded approved state.
 
 ## Packages Used
