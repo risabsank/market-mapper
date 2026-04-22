@@ -41,10 +41,21 @@ class ApprovedSessionSnapshot(MarketMapperModel):
     approved_at: str = Field(default_factory=lambda: utc_now().isoformat())
 
 
+class SessionChatReference(MarketMapperModel):
+    """One validated evidence reference attached to a chat answer."""
+
+    reference_type: str
+    reference_id: str
+    label: str
+    url: str | None = None
+    snippet: str | None = None
+
+
 class SessionChatAnswer(MarketMapperModel):
     """One constrained session-chat answer."""
 
     answer: str
+    references: list[SessionChatReference] = Field(default_factory=list)
     citation_ids: list[str] = Field(default_factory=list)
     uncertainty_note: str | None = None
 

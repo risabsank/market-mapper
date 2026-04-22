@@ -565,13 +565,19 @@ function renderChatThread() {
           <strong>${item.role === "assistant" ? "Market Mapper" : "You"}</strong>
           <p style="margin:8px 0 0;">${item.text}</p>
           ${
-            item.citations?.length
+            item.references?.length
+              ? `<p class="muted-copy" style="margin:10px 0 0;">Evidence: ${item.references
+                  .map((reference) => formatChatReference(reference))
+                  .join(", ")}</p>`
+              : item.citations?.length
               ? `<p class="muted-copy" style="margin:10px 0 0;">Sources: ${item.citations
                   .map((citationId) => {
                     const source = dashboardData.sources.find((entry) => entry.id === citationId);
                     return source
-                      ? `<a href="${source.url}" target="_blank" rel="noreferrer">\`${citationId}\`</a>`
-                      : `\`${citationId}\``;
+                      ? `<a href="${escapeAttribute(source.url)}" target="_blank" rel="noreferrer">\`${escapeHtml(
+                          citationId
+                        )}\`</a>`
+                      : `\`${escapeHtml(citationId)}\``;
                   })
                   .join(", ")}</p>`
               : ""
@@ -602,6 +608,7 @@ async function handleChatSubmit(event) {
   state.thread.push({
     role: "assistant",
     text: answer.answer,
+    references: answer.references || [],
     citations: answer.citation_ids || [],
     uncertainty: answer.uncertainty_note || null,
   });
@@ -636,6 +643,11 @@ function fallbackSessionAnswer(question) {
     return {
       answer:
         "Zendesk looks strongest for enterprise support operations overall, with Intercom close behind where AI-first workflow clarity matters more than governance breadth.",
+      references: [
+        makeSourceReference("source_zendesk_home"),
+        makeClaimReference("claim_zendesk_enterprise_breadth"),
+        makeReportSectionReference("Structured Comparison"),
+      ],
       citation_ids: ["source_zendesk_home", "source_intercom_home"],
       uncertainty_note: null,
     };
@@ -644,6 +656,11 @@ function fallbackSessionAnswer(question) {
     return {
       answer:
         "Freshworks is the most transparent on public pricing. Zendesk and Intercom expose meaningful packaging, but Forethought remains mostly sales-led, so that part of the comparison is less certain.",
+      references: [
+        makeClaimReference("claim_freshworks_public_pricing"),
+        makeSourceReference("source_freshworks_pricing"),
+        makeReportSectionReference("Structured Comparison"),
+      ],
       citation_ids: ["source_freshworks_pricing", "source_zendesk_pricing", "source_intercom_pricing"],
       uncertainty_note: "Pricing comparisons stay directional where sales-led packaging leaves public details incomplete.",
     };
@@ -652,6 +669,11 @@ function fallbackSessionAnswer(question) {
     return {
       answer:
         "Forethought has the thinnest public pricing coverage, and both Zendesk and Intercom still leave some deeper AI pricing details to sales conversations. Those are the biggest uncertainty pockets in this session.",
+      references: [
+        makeClaimReference("claim_forethought_sales_led_pricing"),
+        makeSourceReference("source_forethought_home"),
+        makeReportSectionReference("Key Takeaways"),
+      ],
       citation_ids: ["source_forethought_home", "source_zendesk_pricing", "source_intercom_pricing"],
       uncertainty_note: "This answer is based on public pages only, not private pricing or customer references.",
     };
@@ -660,6 +682,11 @@ function fallbackSessionAnswer(question) {
     return {
       answer:
         "Intercom differentiates on AI-forward product narrative, Zendesk on enterprise service breadth, Freshworks on approachable rollout and pricing clarity, and Forethought on specialist AI automation depth.",
+      references: [
+        makeClaimReference("claim_intercom_ai_narrative"),
+        makeClaimReference("claim_forethought_specialist_automation"),
+        makeReportSectionReference("Company Summaries"),
+      ],
       citation_ids: ["source_intercom_ai", "source_zendesk_home", "source_freshworks_home", "source_forethought_platform"],
       uncertainty_note: null,
     };
@@ -667,6 +694,11 @@ function fallbackSessionAnswer(question) {
   return {
     answer:
       "Within this approved session state, the clearest answer is that Intercom and Zendesk lead overall, but they solve for different buying priorities. The dashboard sections above show where that conclusion is strong and where public evidence is thinner.",
+    references: [
+      makeSourceReference("source_intercom_home"),
+      makeSourceReference("source_zendesk_home"),
+      makeReportSectionReference("Executive Summary"),
+    ],
     citation_ids: ["source_intercom_home", "source_zendesk_home"],
     uncertainty_note: "This fallback answer is limited to the currently embedded dashboard state.",
   };
@@ -777,7 +809,7 @@ function buildApprovedStatePayload() {
       strengths: company.strengths,
       weaknesses_or_gaps: company.gaps,
       explicit_missing_fields: company.missing,
-      claims: [],
+      claims: buildDemoClaims(company),
       source_document_ids: company.sources,
       confidence: company.confidence,
       updated_at: now,
@@ -808,6 +840,25 @@ function buildApprovedStatePayload() {
       title: dashboardData.report.title,
       executive_summary: dashboardData.executiveSummary,
       sections: [
+        {
+          heading: "Executive Summary",
+          body: dashboardData.executiveSummary,
+          citation_ids: dashboardData.sources.slice(0, 4).map((source) => source.id),
+        },
+        {
+          heading: "Company Summaries",
+          body: dashboardData.companies
+            .map((company) => `- ${company.name}: ${company.positioning}`)
+            .join("\n"),
+          citation_ids: dashboardData.companies.flatMap((company) => company.sources.slice(0, 1)),
+        },
+        {
+          heading: "Structured Comparison",
+          body: dashboardData.comparisonFindings
+            .map((finding) => `- ${finding.dimension}: ${finding.summary}`)
+            .join("\n"),
+          citation_ids: dashboardData.sources.slice(0, 8).map((source) => source.id),
+        },
         {
           heading: "Key Takeaways",
           body: dashboardData.keyTakeaways.map((item) => `- ${item}`).join("\n"),
@@ -845,6 +896,104 @@ function buildApprovedStatePayload() {
     })),
     approved_at: now,
   };
+}
+
+function buildDemoClaims(company) {
+  const claimMap = {
+    company_intercom: [
+      {
+        id: "claim_intercom_ai_narrative",
+        label: "AI-first positioning",
+        value: "Intercom presents a strongly AI-forward customer service narrative in public materials.",
+      },
+    ],
+    company_zendesk: [
+      {
+        id: "claim_zendesk_enterprise_breadth",
+        label: "Enterprise operations breadth",
+        value: "Zendesk shows the strongest public enterprise support operations breadth in this set.",
+      },
+    ],
+    company_freshworks: [
+      {
+        id: "claim_freshworks_public_pricing",
+        label: "Public pricing transparency",
+        value: "Freshworks provides the clearest public pricing structure among the compared companies.",
+      },
+    ],
+    company_forethought: [
+      {
+        id: "claim_forethought_sales_led_pricing",
+        label: "Sales-led pricing",
+        value: "Forethought does not show detailed public tier pricing and remains mostly sales-led.",
+      },
+      {
+        id: "claim_forethought_specialist_automation",
+        label: "Specialist automation depth",
+        value: "Forethought is positioned as a specialist in AI support automation rather than a broad suite.",
+      },
+    ],
+  };
+  return (claimMap[company.id] || []).map((claim) => ({
+    ...claim,
+    source_document_ids: company.sources.slice(0, 2),
+    confidence: company.confidence,
+    is_inference: false,
+    notes: null,
+  }));
+}
+
+function makeSourceReference(sourceId) {
+  const source = dashboardData.sources.find((entry) => entry.id === sourceId);
+  return {
+    reference_type: "source",
+    reference_id: sourceId,
+    label: source?.title || sourceId,
+    url: source?.url || null,
+    snippet: source?.snippet || null,
+  };
+}
+
+function makeClaimReference(claimId) {
+  const claim = buildApprovedStatePayload()
+    .company_profiles.flatMap((profile) => profile.claims)
+    .find((entry) => entry.id === claimId);
+  return {
+    reference_type: "claim",
+    reference_id: claimId,
+    label: claim?.label || claimId,
+    url: null,
+    snippet: claim?.value || null,
+  };
+}
+
+function makeReportSectionReference(heading) {
+  const section = buildApprovedStatePayload().report.sections.find((entry) => entry.heading === heading);
+  return {
+    reference_type: "report_section",
+    reference_id: heading,
+    label: heading,
+    url: null,
+    snippet: section?.body || null,
+  };
+}
+
+function formatChatReference(reference) {
+  if (reference.reference_type === "source") {
+    const label = escapeHtml(reference.label || reference.reference_id);
+    return reference.url
+      ? `<a href="${escapeAttribute(reference.url)}" target="_blank" rel="noreferrer">${label}</a>`
+      : label;
+  }
+  if (reference.reference_type === "claim") {
+    const label = escapeHtml(reference.label || reference.reference_id);
+    const snippet = reference.snippet ? `: ${escapeHtml(reference.snippet)}` : "";
+    return `<span title="${escapeAttribute(reference.reference_id)}">Claim: ${label}${snippet}</span>`;
+  }
+  if (reference.reference_type === "report_section") {
+    return `<span>Report: ${escapeHtml(reference.label || reference.reference_id)}</span>`;
+  }
+  return escapeHtml(reference.reference_id);
 }
 
 function populateList(elementId, items) {
