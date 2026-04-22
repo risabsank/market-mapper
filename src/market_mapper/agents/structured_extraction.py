@@ -1,44 +1,53 @@
-"""Structured Extraction Agent placeholder implementation."""
+"""OpenAI-powered Structured Extraction Agent implementation."""
 
 from __future__ import annotations
 
-from market_mapper.schemas.models import CompanyProfile, ExtractedClaim
+from market_mapper.services import generate_structured_output, render_agent_input
 from market_mapper.workflow.contracts import (
     StructuredExtractionNodeInput,
     StructuredExtractionNodeOutput,
 )
 
+STRUCTURED_EXTRACTION_SYSTEM_PROMPT = """
+You are the Structured Extraction Agent for Market Mapper.
+
+Turn discovery candidates and source documents into normalized company profiles.
+
+Rules:
+- Use source-backed information when possible.
+- If a field is unavailable, leave it empty rather than inventing data.
+- Keep claims concise and structured.
+- Confidence should reflect how grounded the information appears.
+"""
+
 
 def run_structured_extraction(
     node_input: StructuredExtractionNodeInput,
 ) -> StructuredExtractionNodeOutput:
-    """Create placeholder company profiles from candidates and sources."""
+    """Create OpenAI-generated company profiles from research inputs."""
 
-    profiles = list(node_input.existing_profiles)
-    if not profiles:
-        source_ids = [document.id for document in node_input.source_documents]
-        for candidate in node_input.company_candidates:
-            profiles.append(
-                CompanyProfile(
-                    name=candidate.name,
-                    website=candidate.website,
-                    market_category=candidate.market_category,
-                    product_summary="Placeholder profile generated from discovery data.",
-                    target_customers=["support teams"],
-                    core_features=["ai_agent", "ticket_triage"],
-                    source_document_ids=source_ids,
-                    claims=[
-                        ExtractedClaim(
-                            label="placeholder_summary",
-                            value="Structured extraction placeholder output.",
-                            source_document_ids=source_ids,
-                        )
-                    ],
-                )
-            )
-
-    return StructuredExtractionNodeOutput(
-        company_profiles=profiles,
-        summary="Structured extraction placeholder generated company profiles.",
-        next_route="executor",
+    response = generate_structured_output(
+        response_model=StructuredExtractionNodeOutput,
+        system_prompt=STRUCTURED_EXTRACTION_SYSTEM_PROMPT,
+        user_input=render_agent_input(
+            task_description="Normalize the research inputs into structured company profiles.",
+            context={
+                "run_id": node_input.run_id,
+                "company_candidates": [
+                    candidate.model_dump(mode="json")
+                    for candidate in node_input.company_candidates
+                ],
+                "source_documents": [
+                    document.model_dump(mode="json")
+                    for document in node_input.source_documents
+                ],
+                "existing_profiles": [
+                    profile.model_dump(mode="json")
+                    for profile in node_input.existing_profiles
+                ],
+            },
+        ),
     )
+    response.next_route = "executor"
+    return response
+
