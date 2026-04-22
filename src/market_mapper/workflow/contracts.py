@@ -140,6 +140,7 @@ class ReportGenerationNodeOutput(WorkflowNodeOutput):
 class ChartGenerationNodeInput(MarketMapperModel):
     run_id: str
     comparison_result: ComparisonResult
+    company_profiles: list[CompanyProfile] = Field(default_factory=list)
     existing_chart_specs: list[ChartSpec] = Field(default_factory=list)
     existing_artifacts: list[SandboxArtifact] = Field(default_factory=list)
     existing_sandbox_tasks: list[SandboxTask] = Field(default_factory=list)

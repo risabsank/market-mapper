@@ -11,7 +11,9 @@ from market_mapper.research import (
     capture_page_snapshot,
     extract_page_content_from_file,
 )
+from market_mapper.charts import render_chart_artifacts, validate_chart_specs
 from market_mapper.schemas.models import CompanyCandidate, ResearchPlan, SourceDocument
+from market_mapper.schemas.models import ChartSpec, ComparisonResult
 from market_mapper.schemas.models.common import ArtifactKind
 from market_mapper.sandbox.artifacts.helpers import (
     register_file_artifact,
@@ -277,29 +279,30 @@ class LocalSandboxRuntime(SandboxRuntime):
 
     def _handle_chart_generation(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
-        artifacts = [
-            write_json_artifact(
-                root_dir=working_dir,
-                filename="chart_specs.json",
-                label="Chart specs",
-                payload=request.payload,
-                metadata={"route_name": request.route_name},
-            ),
-            write_text_artifact(
-                root_dir=working_dir,
-                filename="chart_render_summary.txt",
-                label="Chart render summary",
-                content="Sandbox prepared chart render inputs and outputs.",
-                kind=ArtifactKind.CHART_IMAGE,
-                metadata={"route_name": request.route_name},
-            ),
+        comparison_result = ComparisonResult.model_validate(request.payload.get("comparison_result", {}))
+        chart_specs = [
+            ChartSpec.model_validate(chart_spec)
+            for chart_spec in request.payload.get("chart_specs", [])
         ]
+        chart_specs = validate_chart_specs(
+            chart_specs=chart_specs,
+            run_id=comparison_result.run_id,
+            comparison_result=comparison_result,
+        )
+        artifacts, rendered_charts = render_chart_artifacts(
+            root_dir=working_dir,
+            chart_specs=chart_specs,
+        )
         return SandboxExecutionResult(
             sandbox_task_id=request.sandbox_task_id,
             route_name=request.route_name,
             working_directory=str(working_dir),
-            summary="Sandbox rendered chart artifacts.",
+            summary=f"Sandbox rendered {len(rendered_charts)} chart artifacts.",
             artifacts=artifacts,
+            metadata={
+                "rendered_charts": rendered_charts,
+                "chart_count": len(rendered_charts),
+            },
         )
 
     def _handle_dashboard_builder(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
