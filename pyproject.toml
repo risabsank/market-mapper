@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Planner-executor market research system scaffold"
 requires-python = ">=3.11"
 dependencies = [
+    "langgraph>=0.2,<0.4",
     "pydantic>=2,<3",
 ]
 
