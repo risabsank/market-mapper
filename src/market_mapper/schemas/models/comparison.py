@@ -92,5 +92,5 @@ class Report(MarketMapperModel):
     sections: list[ReportSection] = Field(default_factory=list)
     markdown_body: str
     source_document_ids: list[str] = Field(default_factory=list)
+    artifact_id: str | None = None
     created_at: datetime = Field(default_factory=utc_now)
-

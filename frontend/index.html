@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Market Mapper Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="dashboard-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">MM</div>
+          <div>
+            <p class="eyebrow">Market Mapper</p>
+            <h1>Research Console</h1>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Dashboard sections">
+          <button class="nav-item is-active" data-target="summary">Summary</button>
+          <button class="nav-item" data-target="plan">Research Plan</button>
+          <button class="nav-item" data-target="comparison">Comparison</button>
+          <button class="nav-item" data-target="pricing">Pricing</button>
+          <button class="nav-item" data-target="sources">Sources</button>
+          <button class="nav-item" data-target="report">Markdown Report</button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <p id="run-status-label" class="status-pill"></p>
+          <p class="sidebar-note">
+            Every section reflects the approved session state, including artifact-backed charts and the downloadable report.
+          </p>
+        </div>
+      </aside>
+
+      <div class="main-shell">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Current Session</p>
+            <h2 id="prompt-title">Loading dashboard...</h2>
+          </div>
+
+          <div class="topbar-actions">
+            <button id="theme-toggle" class="ghost-button" type="button" aria-pressed="false">
+              Dark mode
+            </button>
+            <button id="download-report" class="primary-button" type="button">
+              Download Markdown
+            </button>
+            <button id="chat-toggle" class="ghost-button" type="button" aria-expanded="true">
+              Hide Chat
+            </button>
+          </div>
+        </header>
+
+        <main class="content-grid">
+          <section class="primary-column">
+            <section id="summary" class="panel hero-panel">
+              <div class="hero-copy">
+                <p class="eyebrow">Prompt Summary</p>
+                <h3 id="hero-heading"></h3>
+                <p id="hero-summary" class="hero-summary"></p>
+              </div>
+
+              <div class="hero-metrics">
+                <article class="metric-tile">
+                  <span class="metric-label">Companies</span>
+                  <strong id="metric-company-count"></strong>
+                </article>
+                <article class="metric-tile">
+                  <span class="metric-label">Sources</span>
+                  <strong id="metric-source-count"></strong>
+                </article>
+                <article class="metric-tile">
+                  <span class="metric-label">Charts</span>
+                  <strong id="metric-chart-count"></strong>
+                </article>
+              </div>
+            </section>
+
+            <section id="plan" class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Research Plan</p>
+                  <h3>What this run set out to answer</h3>
+                </div>
+                <span id="plan-company-count" class="status-pill"></span>
+              </div>
+
+              <div class="plan-grid">
+                <article>
+                  <h4>Discovery Criteria</h4>
+                  <ul id="discovery-criteria" class="bullet-list"></ul>
+                </article>
+                <article>
+                  <h4>Comparison Dimensions</h4>
+                  <ul id="comparison-dimensions" class="tag-list"></ul>
+                </article>
+                <article>
+                  <h4>Assumptions</h4>
+                  <ul id="plan-assumptions" class="bullet-list"></ul>
+                </article>
+              </div>
+            </section>
+
+            <section class="split-layout">
+              <section id="comparison" class="panel">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Executive Summary</p>
+                    <h3>Most important answer first</h3>
+                  </div>
+                </div>
+                <p id="executive-summary" class="longform"></p>
+
+                <div class="comparison-summary-grid">
+                  <article class="compact-panel">
+                    <h4>Key Takeaways</h4>
+                    <ul id="key-takeaways" class="bullet-list"></ul>
+                  </article>
+                  <article class="compact-panel">
+                    <h4>Tradeoffs</h4>
+                    <ul id="tradeoffs" class="bullet-list"></ul>
+                  </article>
+                </div>
+              </section>
+
+              <section class="panel progress-panel">
+                <p class="eyebrow">Readiness</p>
+                <h3>Research Confidence</h3>
+                <div class="progress-ring-wrap">
+                  <svg class="progress-ring" viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="ring-track" cx="60" cy="60" r="48"></circle>
+                    <circle id="ring-progress" class="ring-progress" cx="60" cy="60" r="48"></circle>
+                  </svg>
+                  <div class="progress-value">
+                    <strong id="confidence-value"></strong>
+                    <span>Grounded coverage</span>
+                  </div>
+                </div>
+                <ul id="confidence-notes" class="bullet-list compact-list"></ul>
+              </section>
+            </section>
+
+            <section class="split-layout">
+              <section class="panel">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Selected Companies</p>
+                    <h3>Who made the comparison set</h3>
+                  </div>
+                </div>
+                <div id="company-cards" class="company-card-grid"></div>
+              </section>
+
+              <section id="pricing" class="panel">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Pricing View</p>
+                    <h3>What is publicly disclosed</h3>
+                  </div>
+                </div>
+                <div id="pricing-cards" class="pricing-grid"></div>
+              </section>
+            </section>
+
+            <section class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Comparison Table</p>
+                  <h3>Cross-company snapshot</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="comparison-table">
+                  <thead></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Feature Matrix</p>
+                  <h3>Where capabilities are clearly supported</h3>
+                </div>
+              </div>
+              <div class="table-wrap">
+                <table id="feature-matrix">
+                  <thead></thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Charts</p>
+                  <h3>Rendered artifacts from the approved comparison state</h3>
+                </div>
+              </div>
+              <div id="chart-grid" class="chart-grid"></div>
+            </section>
+
+            <section id="sources" class="panel">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Sources</p>
+                  <h3>Evidence behind the report</h3>
+                </div>
+              </div>
+              <div id="source-list" class="source-list"></div>
+            </section>
+          </section>
+
+          <aside id="chat-sidebar" class="chat-sidebar panel">
+            <div class="chat-header">
+              <div>
+                <p class="eyebrow">Session Chat</p>
+                <h3>Ask within this dashboard</h3>
+              </div>
+              <span class="status-pill">Read-only context</span>
+            </div>
+
+            <div id="chat-suggestions" class="suggestion-list"></div>
+            <div id="chat-thread" class="chat-thread"></div>
+
+            <form id="chat-form" class="chat-form">
+              <label class="sr-only" for="chat-input">Ask about this session</label>
+              <textarea
+                id="chat-input"
+                rows="3"
+                placeholder="Ask about pricing, differentiators, or source support..."
+              ></textarea>
+              <button class="primary-button" type="submit">Send</button>
+            </form>
+
+            <section id="report" class="report-preview">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Markdown Report</p>
+                  <h3>Ready to export</h3>
+                </div>
+              </div>
+              <pre id="markdown-preview"></pre>
+            </section>
+          </aside>
+        </main>
+      </div>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

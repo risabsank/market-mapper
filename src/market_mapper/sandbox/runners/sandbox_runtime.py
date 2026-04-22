@@ -251,6 +251,7 @@ class LocalSandboxRuntime(SandboxRuntime):
     def _handle_report_generation(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
         markdown = request.payload.get("markdown_body", "# Report\n\nNo report content provided.")
+        report_id = str(request.payload.get("id", ""))
         artifacts = [
             write_text_artifact(
                 root_dir=working_dir,
@@ -259,14 +260,20 @@ class LocalSandboxRuntime(SandboxRuntime):
                 content=markdown,
                 kind=ArtifactKind.MARKDOWN_REPORT,
                 content_type="text/markdown",
-                metadata={"route_name": request.route_name},
+                metadata={
+                    "route_name": request.route_name,
+                    "report_id": report_id,
+                },
             ),
             write_json_artifact(
                 root_dir=working_dir,
                 filename="report_payload.json",
                 label="Report payload",
                 payload=request.payload,
-                metadata={"route_name": request.route_name},
+                metadata={
+                    "route_name": request.route_name,
+                    "report_id": report_id,
+                },
             ),
         ]
         return SandboxExecutionResult(
@@ -275,6 +282,10 @@ class LocalSandboxRuntime(SandboxRuntime):
             working_directory=str(working_dir),
             summary="Sandbox rendered report artifacts.",
             artifacts=artifacts,
+            metadata={
+                "report_id": report_id,
+                "artifact_paths": [artifact.path for artifact in artifacts],
+            },
         )
 
     def _handle_chart_generation(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
