@@ -36,6 +36,7 @@ class SandboxTask(MarketMapperModel):
     id: str = Field(default_factory=lambda: make_id("sandbox"))
     run_id: str
     purpose: str
+    route_name: str | None = None
     status: SandboxTaskStatus = SandboxTaskStatus.PENDING
     agent_task_id: str | None = None
     command: str | None = None
@@ -92,4 +93,3 @@ class SandboxTask(MarketMapperModel):
         if artifact_id not in self.artifact_ids:
             self.artifact_ids.append(artifact_id)
             self.updated_at = utc_now()
-

@@ -28,6 +28,8 @@ class ResearchWorkflowState(MarketMapperModel):
 
     session: ResearchSession
     run: WorkflowRun
+    executor_route: str | None = None
+    executor_summary: str | None = None
     source_documents: list[SourceDocument] = Field(default_factory=list)
     company_candidates: list[CompanyCandidate] = Field(default_factory=list)
     company_profiles: list[CompanyProfile] = Field(default_factory=list)

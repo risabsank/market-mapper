@@ -17,6 +17,11 @@ class ExecutorDecision(MarketMapperModel):
 
     next_route: WorkflowRoute
     summary: str
+    retry_requested: bool = False
+    retry_reason: str | None = None
+    retry_target_route: WorkflowRoute | None = None
+    needs_sandbox: bool = False
+    sandbox_purpose: str | None = None
 
 
 EXECUTOR_SYSTEM_PROMPT = """
@@ -28,8 +33,19 @@ Rules:
 - Only choose one of the allowed routes provided in the input.
 - Prefer the earliest missing dependency in the workflow.
 - If verification requires retry, route back to the most relevant missing stage.
+- If the next step would benefit from isolated execution, set needs_sandbox=true and provide a short sandbox_purpose.
 - Keep the summary short and operational.
 """
+
+
+SANDBOX_ROUTE_DEFAULTS: dict[WorkflowRoute, str] = {
+    "web_research": "Collect and snapshot public web pages for source-backed research.",
+    "structured_extraction": "Transform extracted research artifacts into normalized structured data.",
+    "critic_verifier": "Run artifact-backed validation over structured research outputs.",
+    "report_generation": "Render and validate Markdown report artifacts.",
+    "chart_generation": "Render chart data and reproducible chart artifacts.",
+    "dashboard_builder": "Assemble dashboard preview artifacts from approved outputs.",
+}
 
 
 def run_workflow_executor(node_input: ExecutorNodeInput) -> ExecutorNodeOutput:
@@ -78,9 +94,33 @@ def run_workflow_executor(node_input: ExecutorNodeInput) -> ExecutorNodeOutput:
         ),
     )
     route = decision.next_route if decision.next_route in allowed_routes else deterministic_route
+    retry_requested = bool(
+        node_input.state.verification_result
+        and node_input.state.verification_result.requires_retry
+        and route != "end"
+    )
+    retry_reason = (
+        "; ".join(node_input.state.verification_result.next_actions)
+        if retry_requested and node_input.state.verification_result.next_actions
+        else decision.retry_reason
+    )
+    retry_target_route = route if retry_requested else decision.retry_target_route
+    sandbox_purpose = decision.sandbox_purpose or SANDBOX_ROUTE_DEFAULTS.get(route)
+    needs_sandbox = bool(decision.needs_sandbox or route in SANDBOX_ROUTE_DEFAULTS)
     return ExecutorNodeOutput(
         next_route=route,
         summary=decision.summary,
         current_node=node_input.current_node,
+        retry_requested=retry_requested,
+        retry_reason=retry_reason,
+        retry_target_route=retry_target_route,
+        needs_sandbox=needs_sandbox,
+        sandbox_purpose=sandbox_purpose,
+        checkpoint_payload={
+            "next_route": route,
+            "retry_requested": retry_requested,
+            "retry_target_route": retry_target_route,
+            "needs_sandbox": needs_sandbox,
+            "sandbox_purpose": sandbox_purpose,
+        },
     )
-

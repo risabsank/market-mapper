@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field
 
@@ -64,6 +64,12 @@ class ExecutorNodeInput(MarketMapperModel):
 
 class ExecutorNodeOutput(WorkflowNodeOutput):
     current_node: str
+    retry_requested: bool = False
+    retry_reason: str | None = None
+    retry_target_route: WorkflowRoute | None = None
+    needs_sandbox: bool = False
+    sandbox_purpose: str | None = None
+    checkpoint_payload: dict[str, Any] = Field(default_factory=dict)
 
 
 class CompanyDiscoveryNodeInput(MarketMapperModel):

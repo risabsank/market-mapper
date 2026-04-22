@@ -15,7 +15,7 @@ from market_mapper.workflow.nodes import (
     structured_extraction_node,
     web_research_node,
 )
-from market_mapper.workflow.routing import determine_next_route
+from market_mapper.workflow.routing import select_executor_route
 from market_mapper.workflow.state import ResearchWorkflowState
 
 
@@ -46,9 +46,10 @@ def build_research_graph():
     graph.add_edge("planner", "executor")
     graph.add_conditional_edges(
         "executor",
-        determine_next_route,
+        select_executor_route,
         {
             "planner": "planner",
+            "executor": "executor",
             "company_discovery": "company_discovery",
             "web_research": "web_research",
             "structured_extraction": "structured_extraction",

@@ -42,6 +42,28 @@ def determine_next_route(state: ResearchWorkflowState) -> WorkflowRoute:
     return "session_chatbot"
 
 
+def select_executor_route(state: ResearchWorkflowState) -> WorkflowRoute:
+    """Return the executor's chosen route, falling back to deterministic routing."""
+
+    route = state.executor_route
+    if route in {
+        "planner",
+        "executor",
+        "company_discovery",
+        "web_research",
+        "structured_extraction",
+        "comparison",
+        "critic_verifier",
+        "report_generation",
+        "chart_generation",
+        "dashboard_builder",
+        "session_chatbot",
+        "end",
+    }:
+        return route
+    return determine_next_route(state)
+
+
 def _retry_route(next_actions: list[str]) -> WorkflowRoute:
     joined = " ".join(next_actions).lower()
     if "discovery" in joined:
