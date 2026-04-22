@@ -336,11 +336,11 @@ const state = {
       role: "assistant",
       text:
         "This panel stays inside the current research session. Ask about the comparison, sources, pricing, or uncertainty and I’ll answer from the approved dashboard state.",
+      citations: [],
+      uncertainty: null,
     },
   ],
 };
-
-const sourceLookup = Object.fromEntries(dashboardData.sources.map((source) => [source.id, source]));
 
 initialize();
 
@@ -564,6 +564,19 @@ function renderChatThread() {
         <article class="chat-bubble ${item.role}">
           <strong>${item.role === "assistant" ? "Market Mapper" : "You"}</strong>
           <p style="margin:8px 0 0;">${item.text}</p>
+          ${
+            item.citations?.length
+              ? `<p class="muted-copy" style="margin:10px 0 0;">Sources: ${item.citations
+                  .map((citationId) => {
+                    const source = dashboardData.sources.find((entry) => entry.id === citationId);
+                    return source
+                      ? `<a href="${source.url}" target="_blank" rel="noreferrer">\`${citationId}\`</a>`
+                      : `\`${citationId}\``;
+                  })
+                  .join(", ")}</p>`
+              : ""
+          }
+          ${item.uncertainty ? `<p class="warning-text" style="margin:8px 0 0;">${item.uncertainty}</p>` : ""}
         </article>
       `
     )
@@ -574,7 +587,7 @@ function renderMarkdownPreview() {
   document.getElementById("markdown-preview").textContent = dashboardData.report.markdown;
 }
 
-function handleChatSubmit(event) {
+async function handleChatSubmit(event) {
   event.preventDefault();
   const input = document.getElementById("chat-input");
   const question = input.value.trim();
@@ -582,27 +595,81 @@ function handleChatSubmit(event) {
     return;
   }
 
-  state.thread.push({ role: "user", text: question });
-  state.thread.push({ role: "assistant", text: answerQuestion(question) });
+  state.thread.push({ role: "user", text: question, citations: [], uncertainty: null });
+  renderChatThread();
   input.value = "";
+  const answer = await askSessionChat(question);
+  state.thread.push({
+    role: "assistant",
+    text: answer.answer,
+    citations: answer.citation_ids || [],
+    uncertainty: answer.uncertainty_note || null,
+  });
   renderChatThread();
 }
 
-function answerQuestion(question) {
+async function askSessionChat(question) {
+  try {
+    const response = await fetch("/api/chat/answer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        session_id: dashboardData.session.id,
+        question,
+        approved_state: buildApprovedStatePayload(),
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Chat request failed with status ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    return fallbackSessionAnswer(question);
+  }
+}
+
+function fallbackSessionAnswer(question) {
   const normalized = question.toLowerCase();
   if (normalized.includes("enterprise")) {
-    return "Zendesk looks strongest for enterprise support operations overall, with Intercom close behind where AI-first workflow clarity matters more than governance breadth.";
+    return {
+      answer:
+        "Zendesk looks strongest for enterprise support operations overall, with Intercom close behind where AI-first workflow clarity matters more than governance breadth.",
+      citation_ids: ["source_zendesk_home", "source_intercom_home"],
+      uncertainty_note: null,
+    };
   }
   if (normalized.includes("pricing")) {
-    return "Freshworks is the most transparent on public pricing. Zendesk and Intercom expose meaningful packaging, but Forethought remains mostly sales-led, so that part of the comparison is less certain.";
+    return {
+      answer:
+        "Freshworks is the most transparent on public pricing. Zendesk and Intercom expose meaningful packaging, but Forethought remains mostly sales-led, so that part of the comparison is less certain.",
+      citation_ids: ["source_freshworks_pricing", "source_zendesk_pricing", "source_intercom_pricing"],
+      uncertainty_note: "Pricing comparisons stay directional where sales-led packaging leaves public details incomplete.",
+    };
   }
   if (normalized.includes("uncertain") || normalized.includes("confidence")) {
-    return "Forethought has the thinnest public pricing coverage, and both Zendesk and Intercom still leave some deeper AI pricing details to sales conversations. Those are the biggest uncertainty pockets in this session.";
+    return {
+      answer:
+        "Forethought has the thinnest public pricing coverage, and both Zendesk and Intercom still leave some deeper AI pricing details to sales conversations. Those are the biggest uncertainty pockets in this session.",
+      citation_ids: ["source_forethought_home", "source_zendesk_pricing", "source_intercom_pricing"],
+      uncertainty_note: "This answer is based on public pages only, not private pricing or customer references.",
+    };
   }
   if (normalized.includes("differentiator")) {
-    return "Intercom differentiates on AI-forward product narrative, Zendesk on enterprise service breadth, Freshworks on approachable rollout and pricing clarity, and Forethought on specialist AI automation depth.";
+    return {
+      answer:
+        "Intercom differentiates on AI-forward product narrative, Zendesk on enterprise service breadth, Freshworks on approachable rollout and pricing clarity, and Forethought on specialist AI automation depth.",
+      citation_ids: ["source_intercom_ai", "source_zendesk_home", "source_freshworks_home", "source_forethought_platform"],
+      uncertainty_note: null,
+    };
   }
-  return "Within this approved session state, the clearest answer is that Intercom and Zendesk lead overall, but they solve for different buying priorities. The dashboard sections above show where that conclusion is strong and where public evidence is thinner.";
+  return {
+    answer:
+      "Within this approved session state, the clearest answer is that Intercom and Zendesk lead overall, but they solve for different buying priorities. The dashboard sections above show where that conclusion is strong and where public evidence is thinner.",
+    citation_ids: ["source_intercom_home", "source_zendesk_home"],
+    uncertainty_note: "This fallback answer is limited to the currently embedded dashboard state.",
+  };
 }
 
 function toggleTheme() {
@@ -637,6 +704,147 @@ function downloadMarkdown() {
   anchor.download = "market-mapper-report.md";
   anchor.click();
   URL.revokeObjectURL(url);
+}
+
+function buildApprovedStatePayload() {
+  const now = new Date().toISOString();
+  return {
+    session_id: dashboardData.session.id,
+    run_id: "run_demo_dashboard",
+    user_prompt: dashboardData.session.prompt,
+    research_plan: {
+      id: "plan_demo_dashboard",
+      market_query: dashboardData.plan.marketQuery,
+      requested_company_count: dashboardData.plan.requestedCompanyCount,
+      named_companies: [],
+      geography: null,
+      target_segment: null,
+      discovery_criteria: dashboardData.plan.discoveryCriteria,
+      comparison_dimensions: dashboardData.plan.comparisonDimensions,
+      required_outputs: ["dashboard", "markdown_report", "charts"],
+      assumptions: dashboardData.plan.assumptions,
+      created_at: now,
+      updated_at: now,
+    },
+    dashboard_state: {
+      id: "dashboard_demo",
+      session_id: dashboardData.session.id,
+      run_id: "run_demo_dashboard",
+      executive_summary: dashboardData.executiveSummary,
+      selected_company_ids: dashboardData.companies.map((company) => company.id),
+      comparison_result_id: "comparison_demo",
+      report_id: "report_demo",
+      chart_ids: dashboardData.charts.map((chart) => chart.id),
+      source_document_ids: dashboardData.sources.map((source) => source.id),
+      sections: [
+        {
+          key: "summary",
+          title: "Summary",
+          summary: dashboardData.executiveSummary,
+          content_refs: [],
+        },
+        {
+          key: "sources",
+          title: "Sources",
+          summary: "Evidence behind the report",
+          content_refs: dashboardData.sources.map((source) => source.id),
+        },
+      ],
+      generated_at: now,
+      updated_at: now,
+    },
+    executive_summary: dashboardData.executiveSummary,
+    company_profiles: dashboardData.companies.map((company) => ({
+      id: company.id,
+      name: company.name,
+      website: company.website,
+      market_category: dashboardData.plan.marketQuery,
+      product_summary: company.positioning,
+      target_customers: company.targetCustomers,
+      core_features: company.coreFeatures,
+      ai_capabilities: company.coreFeatures.filter(
+        (feature) =>
+          feature.toLowerCase().includes("ai") || feature.toLowerCase().includes("agent")
+      ),
+      integrations: company.integrations,
+      pricing_model: company.pricingModel,
+      public_pricing_details: company.publicPricingDetails,
+      packaging_or_plans: [],
+      positioning_statement: company.positioning,
+      differentiators: company.differentiators,
+      customer_proof_points: [],
+      notable_public_metrics: {},
+      strengths: company.strengths,
+      weaknesses_or_gaps: company.gaps,
+      explicit_missing_fields: company.missing,
+      claims: [],
+      source_document_ids: company.sources,
+      confidence: company.confidence,
+      updated_at: now,
+    })),
+    comparison_result: {
+      id: "comparison_demo",
+      run_id: "run_demo_dashboard",
+      company_ids: dashboardData.companies.map((company) => company.id),
+      dimensions: dashboardData.plan.comparisonDimensions.map((dimension) =>
+        dimension.replaceAll(" ", "_")
+      ),
+      findings: dashboardData.comparisonFindings.map((finding) => ({
+        dimension: finding.dimension,
+        summary: finding.summary,
+        winner_company_id: null,
+        evidence_claim_ids: [],
+        notes: [],
+      })),
+      similarities: ["All companies position AI as part of the support experience."],
+      differences: dashboardData.comparisonFindings.map((finding) => finding.summary),
+      tradeoffs: dashboardData.tradeoffs,
+      ideal_customer_notes: dashboardData.keyTakeaways,
+      generated_at: now,
+    },
+    report: {
+      id: "report_demo",
+      run_id: "run_demo_dashboard",
+      title: dashboardData.report.title,
+      executive_summary: dashboardData.executiveSummary,
+      sections: [
+        {
+          heading: "Key Takeaways",
+          body: dashboardData.keyTakeaways.map((item) => `- ${item}`).join("\n"),
+          citation_ids: dashboardData.sources.slice(0, 4).map((source) => source.id),
+        },
+      ],
+      markdown_body: dashboardData.report.markdown,
+      source_document_ids: dashboardData.sources.map((source) => source.id),
+      artifact_id: null,
+      created_at: now,
+    },
+    chart_specs: dashboardData.charts.map((chart) => ({
+      id: chart.id,
+      run_id: "run_demo_dashboard",
+      chart_type: chart.type,
+      title: chart.title,
+      description: chart.description,
+      data: [],
+      x_field: null,
+      y_field: null,
+      series_field: null,
+      comparison_result_id: "comparison_demo",
+      artifact_id: null,
+      created_at: now,
+    })),
+    source_documents: dashboardData.sources.map((source) => ({
+      id: source.id,
+      url: source.url,
+      title: source.title,
+      source_type: source.sourceType,
+      accessed_at: now,
+      snippet: source.snippet,
+      snapshot_artifact_id: null,
+      metadata: { company_name: source.company },
+    })),
+    approved_at: now,
+  };
 }
 
 function populateList(elementId, items) {

@@ -95,6 +95,24 @@ Install Playwright browser binaries:
 python -m playwright install
 ```
 
+## Running the Dashboard and Chat API
+
+After installing dependencies, start the local app server:
+
+```bash
+uvicorn market_mapper.api.app:app --reload
+```
+
+Then open:
+
+- [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/) for the dashboard
+
+The right-side session chatbot sends approved session state to:
+
+- `POST /api/chat/answer`
+
+When the dashboard is served through the API app, the chatbot uses the OpenAI-backed session chat route. If the HTML file is opened directly without the backend running, the sidebar falls back to a local demo responder based on the embedded approved state.
+
 ## Packages Used
 
 Core packages currently declared in `pyproject.toml`:
