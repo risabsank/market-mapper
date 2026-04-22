@@ -27,6 +27,7 @@ class SandboxExecutionRequest(MarketMapperModel):
     run_id: str
     sandbox_task_id: str
     working_directory: str
+    input_manifest_path: str | None = None
     payload: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -37,6 +38,7 @@ class SandboxExecutionResult(MarketMapperModel):
     route_name: str
     working_directory: str
     summary: str
+    output_manifest_path: str | None = None
     artifacts: list[SandboxFileArtifact] = Field(default_factory=list)
     log_path: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
@@ -44,4 +46,3 @@ class SandboxExecutionResult(MarketMapperModel):
     @property
     def working_dir_path(self) -> Path:
         return Path(self.working_directory)
-

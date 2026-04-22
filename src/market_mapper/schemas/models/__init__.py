@@ -1,6 +1,12 @@
 """Core typed models."""
 
-from .artifacts import SandboxArtifact, SandboxTask
+from .artifacts import (
+    SandboxArtifact,
+    SandboxExecutionRecord,
+    SandboxTask,
+    SandboxValidationIssue,
+    SandboxValidationResult,
+)
 from .common import (
     ApprovalRecord,
     ApprovalStatus,
@@ -51,7 +57,10 @@ __all__ = [
     "RetryRecord",
     "RunStatus",
     "SandboxArtifact",
+    "SandboxExecutionRecord",
     "SandboxTask",
+    "SandboxValidationIssue",
+    "SandboxValidationResult",
     "SandboxTaskStatus",
     "SourceDocument",
     "TaskStatus",

@@ -118,6 +118,9 @@ class FileWorkflowStateStore:
             sandbox_task,
         )
 
+    def update_sandbox_task(self, sandbox_task: SandboxTask) -> None:
+        self.save_sandbox_task(sandbox_task)
+
     def list_sandbox_tasks_for_run(self, run_id: str) -> list[SandboxTask]:
         tasks = [
             self._read_model(path, SandboxTask)

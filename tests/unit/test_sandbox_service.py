@@ -38,4 +38,9 @@ def test_sandbox_service_executes_pending_route_tasks(tmp_path: Path) -> None:
 
     assert len(artifacts) >= 1
     assert state.sandbox_tasks[0].status.value == "completed"
+    assert state.sandbox_tasks[0].input_manifest_path is not None
+    assert state.sandbox_tasks[0].output_manifest_path is not None
+    assert state.sandbox_tasks[0].validation_result is not None
+    assert state.sandbox_tasks[0].validation_result.valid is True
+    assert len(state.sandbox_tasks[0].lifecycle_events) >= 3
     assert any(Path(artifact.path).exists() for artifact in artifacts if artifact.path)

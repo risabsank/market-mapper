@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+import json
 from pathlib import Path
 
 from market_mapper.schemas.models.common import ArtifactKind
@@ -25,6 +26,11 @@ class LocalSandboxRuntime(SandboxRuntime):
         route_name = request.route_name
         working_dir = Path(request.working_directory)
         working_dir.mkdir(parents=True, exist_ok=True)
+        if request.input_manifest_path:
+            Path(request.input_manifest_path).write_text(
+                json.dumps(request.payload, indent=2, sort_keys=True, default=str),
+                encoding="utf-8",
+            )
 
         handler = {
             "web_research": self._handle_web_research,
@@ -43,6 +49,21 @@ class LocalSandboxRuntime(SandboxRuntime):
                 encoding="utf-8",
             )
         result.log_path = str(log_path)
+        output_manifest = working_dir / "output_manifest.json"
+        output_manifest.write_text(
+            json.dumps(
+                {
+                    "summary": result.summary,
+                    "artifacts": [artifact.model_dump(mode="json") for artifact in result.artifacts],
+                    "metadata": result.metadata,
+                },
+                indent=2,
+                sort_keys=True,
+                default=str,
+            ),
+            encoding="utf-8",
+        )
+        result.output_manifest_path = str(output_manifest)
         return result
 
     def _handle_web_research(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:

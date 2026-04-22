@@ -56,3 +56,12 @@ def write_text_artifact(
         metadata=metadata or {},
     )
 
+
+def validate_file_artifacts(artifacts: list[SandboxFileArtifact]) -> list[str]:
+    """Validate that declared artifact paths exist on disk."""
+
+    issues: list[str] = []
+    for artifact in artifacts:
+        if not Path(artifact.path).exists():
+            issues.append(f"Artifact path does not exist: {artifact.path}")
+    return issues
