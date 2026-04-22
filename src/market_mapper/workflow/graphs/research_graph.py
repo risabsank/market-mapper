@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from market_mapper.workflow.nodes import (
     chart_generation_node,
     company_discovery_node,
@@ -15,8 +17,32 @@ from market_mapper.workflow.nodes import (
     structured_extraction_node,
     web_research_node,
 )
+from market_mapper.workflow.helpers import persist_failed_workflow_state, persist_workflow_state
 from market_mapper.workflow.routing import select_executor_route
 from market_mapper.workflow.state import ResearchWorkflowState
+
+logger = logging.getLogger("market_mapper.workflow")
+
+
+def _wrap_node(node_name: str, node_fn):
+    """Wrap a workflow node with logging and persistence."""
+
+    def wrapped(state: ResearchWorkflowState) -> ResearchWorkflowState:
+        logger.info("Run %s entering node %s.", state.run.id, node_name)
+        try:
+            updated_state = node_fn(state)
+            persist_workflow_state(updated_state)
+            logger.info("Run %s finished node %s.", updated_state.run.id, node_name)
+            return updated_state
+        except Exception as exc:
+            persist_failed_workflow_state(
+                state,
+                current_node=node_name,
+                error_message=str(exc),
+            )
+            raise
+
+    return wrapped
 
 
 def build_research_graph():
@@ -30,17 +56,17 @@ def build_research_graph():
         ) from exc
 
     graph = StateGraph(ResearchWorkflowState)
-    graph.add_node("planner", planner_node)
-    graph.add_node("executor", executor_node)
-    graph.add_node("company_discovery", company_discovery_node)
-    graph.add_node("web_research", web_research_node)
-    graph.add_node("structured_extraction", structured_extraction_node)
-    graph.add_node("comparison", comparison_node)
-    graph.add_node("critic_verifier", critic_verifier_node)
-    graph.add_node("report_generation", report_generation_node)
-    graph.add_node("chart_generation", chart_generation_node)
-    graph.add_node("dashboard_builder", dashboard_builder_node)
-    graph.add_node("session_chatbot", session_chatbot_node)
+    graph.add_node("planner", _wrap_node("planner", planner_node))
+    graph.add_node("executor", _wrap_node("executor", executor_node))
+    graph.add_node("company_discovery", _wrap_node("company_discovery", company_discovery_node))
+    graph.add_node("web_research", _wrap_node("web_research", web_research_node))
+    graph.add_node("structured_extraction", _wrap_node("structured_extraction", structured_extraction_node))
+    graph.add_node("comparison", _wrap_node("comparison", comparison_node))
+    graph.add_node("critic_verifier", _wrap_node("critic_verifier", critic_verifier_node))
+    graph.add_node("report_generation", _wrap_node("report_generation", report_generation_node))
+    graph.add_node("chart_generation", _wrap_node("chart_generation", chart_generation_node))
+    graph.add_node("dashboard_builder", _wrap_node("dashboard_builder", dashboard_builder_node))
+    graph.add_node("session_chatbot", _wrap_node("session_chatbot", session_chatbot_node))
 
     graph.add_edge(START, "planner")
     graph.add_edge("planner", "executor")

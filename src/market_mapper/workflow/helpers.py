@@ -2,9 +2,49 @@
 
 from __future__ import annotations
 
+import logging
+
+from market_mapper.config.settings import get_settings
 from market_mapper.schemas.models import AgentTask, SandboxArtifact
-from market_mapper.sandbox import SandboxService
+from market_mapper.sandbox.service import SandboxService
+from market_mapper.storage import FileWorkflowStateStore
 from market_mapper.workflow.state import ResearchWorkflowState
+
+logger = logging.getLogger("market_mapper.workflow")
+
+
+def persist_workflow_state(state: ResearchWorkflowState) -> None:
+    """Persist the current workflow state so progress is externally visible."""
+
+    store = FileWorkflowStateStore(get_settings().workflow_state_dir)
+    store.save_session(state.session)
+    store.save_run(state.run)
+    if state.dashboard_state is not None:
+        store.save_dashboard_state(state.dashboard_state)
+    for sandbox_task in state.sandbox_tasks:
+        store.save_sandbox_task(sandbox_task)
+    for artifact in state.sandbox_artifacts:
+        store.save_artifact(artifact)
+
+
+def persist_failed_workflow_state(
+    state: ResearchWorkflowState,
+    *,
+    current_node: str,
+    error_message: str,
+) -> None:
+    """Persist a workflow failure that happened outside a task completion path."""
+
+    state.run.mark_failed(error_message, current_node=current_node)
+    state.session.status = state.run.status
+    state.touch()
+    logger.exception(
+        "Run %s failed while executing workflow node %s: %s",
+        state.run.id,
+        current_node,
+        error_message,
+    )
+    persist_workflow_state(state)
 
 
 def start_agent_task(
@@ -26,6 +66,13 @@ def start_agent_task(
     task.mark_running()
     state.run.add_task(task)
     state.touch()
+    logger.info(
+        "Run %s started agent task %s (%s).",
+        state.run.id,
+        task.agent_name,
+        task.task_type,
+    )
+    persist_workflow_state(state)
     return task
 
 
@@ -41,6 +88,13 @@ def complete_agent_task(
     task.mark_completed(outputs=outputs, output_summary=summary)
     state.run.add_task(task)
     state.touch()
+    logger.info(
+        "Run %s completed agent task %s (%s).",
+        state.run.id,
+        task.agent_name,
+        task.task_type,
+    )
+    persist_workflow_state(state)
 
 
 def fail_agent_task(
@@ -55,6 +109,14 @@ def fail_agent_task(
     state.run.add_task(task)
     state.run.mark_failed(error_message)
     state.touch()
+    logger.error(
+        "Run %s failed agent task %s (%s): %s",
+        state.run.id,
+        task.agent_name,
+        task.task_type,
+        error_message,
+    )
+    persist_workflow_state(state)
 
 
 def execute_sandbox_for_route(
@@ -80,4 +142,11 @@ def execute_sandbox_for_route(
         target_agent_task.add_artifact(artifact.id)
     state.run.add_task(target_agent_task)
     state.touch()
+    logger.info(
+        "Run %s executed sandbox route %s and attached %s artifacts.",
+        state.run.id,
+        route_name,
+        len(artifacts),
+    )
+    persist_workflow_state(state)
     return artifacts

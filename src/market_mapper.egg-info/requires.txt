@@ -1,0 +1,11 @@
+beautifulsoup4<5,>=4.12
+jinja2<4,>=3.1
+langgraph<0.4,>=0.2
+openai<3,>=1.0
+pandas<3,>=2.0
+playwright<2,>=1.40
+pydantic<3,>=2
+trafilatura<2,>=1.9
+
+[dev]
+pytest<9,>=8

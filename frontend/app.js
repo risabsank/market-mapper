@@ -5,11 +5,13 @@ const DEFAULT_CHAT_SUGGESTIONS = [
 ];
 
 const RUN_POLL_INTERVAL_MS = 3000;
-const RUN_POLL_ATTEMPTS = 20;
+const RUN_POLL_ATTEMPTS = 240;
 
 const state = {
   theme: localStorage.getItem("market-mapper-theme") || "light",
   chatCollapsed: false,
+  sidebarCollapsed: localStorage.getItem("market-mapper-sidebar-collapsed") === "true",
+  sessions: [],
   sessionId: null,
   session: null,
   runStatus: null,
@@ -17,29 +19,39 @@ const state = {
   loading: true,
   error: null,
   thread: [],
+  composerPrompt: "",
+  loadRequestId: 0,
 };
 
 initialize().catch((error) => {
   console.error(error);
-  showErrorState("Unable to load dashboard", error.message || "The dashboard could not be loaded.");
+  showErrorState("Unable to load workspace", error.message || "The dashboard could not be loaded.");
 });
 
 async function initialize() {
   applyTheme(state.theme);
+  applySidebarState();
   bindEvents();
   renderDashboard();
-  await loadDashboard();
+  await bootstrapWorkspace();
 }
 
 function bindEvents() {
   document.getElementById("theme-toggle").addEventListener("click", toggleTheme);
   document.getElementById("chat-toggle").addEventListener("click", toggleChat);
+  document.getElementById("sidebar-toggle").addEventListener("click", toggleSidebar);
+  document.getElementById("new-session").addEventListener("click", beginNewSessionDraft);
   document.getElementById("download-report").addEventListener("click", downloadMarkdown);
   document.getElementById("chat-form").addEventListener("submit", handleChatSubmit);
+  document.getElementById("prompt-form").addEventListener("submit", handlePromptSubmit);
+  document.getElementById("prompt-clear").addEventListener("click", () => {
+    state.composerPrompt = "";
+    document.getElementById("prompt-input").value = "";
+  });
   document.getElementById("app-state-retry").addEventListener("click", () => {
-    loadDashboard().catch((error) => {
+    bootstrapWorkspace().catch((error) => {
       console.error(error);
-      showErrorState("Unable to reload dashboard", error.message || "The dashboard could not be reloaded.");
+      showErrorState("Unable to reload workspace", error.message || "The dashboard could not be reloaded.");
     });
   });
 
@@ -52,7 +64,39 @@ function bindEvents() {
   });
 }
 
-async function loadDashboard() {
+async function bootstrapWorkspace() {
+  await loadSessions();
+  const sessionId = resolveSessionId();
+  if (sessionId) {
+    await loadDashboard(sessionId);
+    return;
+  }
+
+  state.session = null;
+  state.runStatus = null;
+  state.dashboard = null;
+  state.sessionId = null;
+  state.thread = [];
+  state.loading = false;
+  state.error = null;
+  hideAppState();
+  renderDashboard();
+}
+
+async function loadSessions() {
+  try {
+    state.sessions = await fetchJson("/api/sessions");
+  } catch (error) {
+    state.sessions = [];
+    if (error.status !== 404) {
+      throw error;
+    }
+  }
+  renderSessionList();
+}
+
+async function loadDashboard(sessionId = resolveSessionId()) {
+  const loadRequestId = ++state.loadRequestId;
   state.loading = true;
   state.error = null;
   renderAppState({
@@ -63,25 +107,40 @@ async function loadDashboard() {
   });
   renderDashboard();
 
-  const sessionId = resolveSessionId();
   if (!sessionId) {
-    showErrorState(
-      "No session selected",
-      "Open the dashboard with a `session_id` query parameter, or create a session and run through the backend API first."
-    );
+    state.loading = false;
+    hideAppState();
+    renderDashboard();
     return;
   }
 
   state.sessionId = sessionId;
   state.session = await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}`);
+  if (loadRequestId !== state.loadRequestId) {
+    return;
+  }
   if (state.session?.id) {
     storeSessionId(state.session.id);
   }
   state.runStatus = state.session.active_run_id
     ? await fetchRunStatus(state.session.active_run_id)
     : null;
+  if (loadRequestId !== state.loadRequestId) {
+    return;
+  }
 
-  const payload = await waitForApprovedDashboard(sessionId);
+  let payload;
+  try {
+    payload = await waitForApprovedDashboard(sessionId);
+  } catch (error) {
+    if (String(error.message || "").includes("superseded")) {
+      return;
+    }
+    throw error;
+  }
+  if (loadRequestId !== state.loadRequestId) {
+    return;
+  }
   state.dashboard = mapSnapshotToDashboard({
     session: state.session,
     runStatus: state.runStatus,
@@ -102,11 +161,56 @@ async function loadDashboard() {
   renderDashboard();
 }
 
+async function handlePromptSubmit(event) {
+  event.preventDefault();
+  const input = document.getElementById("prompt-input");
+  const prompt = input.value.trim();
+  if (!prompt) {
+    return;
+  }
+
+  state.composerPrompt = prompt;
+  state.loading = true;
+  state.error = null;
+  renderAppState({
+    eyebrow: "Starting",
+    title: "Creating a new research session",
+    body: "Saving the prompt and starting the workflow in the background.",
+    showRetry: false,
+  });
+  renderRunProgress({
+    run: { current_node: "planner" },
+    progress: { current_node: "planner", percent_complete: 2 },
+  });
+  renderDashboard();
+
+  try {
+    const session = await postJson("/api/sessions", { prompt });
+    await postJson(`/api/sessions/${encodeURIComponent(session.id)}/runs`, {});
+    await loadSessions();
+    await loadDashboard(session.id);
+  } catch (error) {
+    console.error(error);
+    showErrorState("Unable to start research", error.message || "The session could not be created.");
+  }
+}
+
+function beginNewSessionDraft() {
+  openFreshWorkspace();
+}
+
 async function waitForApprovedDashboard(sessionId) {
+  const loadRequestId = state.loadRequestId;
   for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
+    if (loadRequestId !== state.loadRequestId) {
+      throw new Error("Dashboard load was superseded by a newer session.");
+    }
     try {
       return await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/dashboard`);
     } catch (error) {
+      if (loadRequestId !== state.loadRequestId) {
+        throw new Error("Dashboard load was superseded by a newer session.");
+      }
       if (error.status !== 404) {
         throw error;
       }
@@ -122,21 +226,38 @@ async function waitForApprovedDashboard(sessionId) {
         body: buildRunProgressMessage(state.runStatus),
         showRetry: false,
       });
+      renderRunProgress(state.runStatus);
       renderDashboard();
       await sleep(RUN_POLL_INTERVAL_MS);
     }
   }
-  throw new Error("Timed out while waiting for the approved dashboard payload.");
+  renderAppState({
+    eyebrow: "Still working",
+    title: "The research run is taking longer than usual",
+    body: "Market Mapper is still collecting and verifying information. You can keep this page open and retry in a moment without losing the session.",
+    showRetry: true,
+  });
+  renderRunProgress(state.runStatus || { run: { current_node: "executor" }, progress: { percent_complete: 85 } });
+  throw new Error("The research run is still in progress. Retry in a moment to refresh the dashboard.");
 }
 
 function renderDashboard() {
   const dashboard = state.dashboard;
-  document.getElementById("run-status-label").textContent = dashboard?.session.status || "Waiting for session";
-  document.getElementById("prompt-title").textContent = dashboard?.session.prompt || "Market Mapper Dashboard";
+  const hasDashboard = Boolean(dashboard);
+  const hasSessions = state.sessions.length > 0;
+  const contentGrid = document.querySelector(".content-grid");
+  const promptInput = document.getElementById("prompt-input");
+  const promptTitle = state.session?.user_prompt || "Market Mapper Dashboard";
+  const promptSummary = state.session?.user_prompt
+    ? "This session is tied to the prompt below. The report view fills in after the workflow finishes collecting and approving data."
+    : "Start a session with a prompt, or reopen a previous session from the left rail.";
+
+  document.getElementById("run-status-label").textContent = dashboard?.session.status || "Ready";
+  document.getElementById("prompt-title").textContent = promptTitle;
   document.getElementById("hero-heading").textContent = dashboard?.plan.marketQuery || "No approved dashboard loaded";
   document.getElementById("hero-summary").textContent =
     dashboard?.session.promptSummary ||
-    "This dashboard will populate once the approved session state is available from the backend.";
+    "This page stays blank until a session is running and approved research is available.";
   document.getElementById("metric-company-count").textContent = String(dashboard?.companies.length || 0);
   document.getElementById("metric-source-count").textContent = String(dashboard?.sources.length || 0);
   document.getElementById("metric-chart-count").textContent = String(dashboard?.charts.length || 0);
@@ -152,6 +273,17 @@ function renderDashboard() {
   populateList("key-takeaways", dashboard?.keyTakeaways || []);
   populateList("tradeoffs", dashboard?.tradeoffs || []);
 
+  document.getElementById("composer-title").textContent = hasSessions
+    ? hasDashboard
+      ? "Start another research session"
+      : "Complete this session with a prompt"
+    : "Start with a prompt";
+  document.getElementById("composer-body").textContent = promptSummary;
+  promptInput.value = state.composerPrompt || state.session?.user_prompt || "";
+  contentGrid.hidden = !hasDashboard;
+
+  renderSessionList();
+
   renderConfidencePanel();
   renderCompanyCards();
   renderPricingCards();
@@ -165,6 +297,88 @@ function renderDashboard() {
   renderReportSections();
   renderMarkdownPreview();
   syncControlState();
+}
+
+function renderSessionList() {
+  const container = document.getElementById("session-list");
+  if (!container) {
+    return;
+  }
+
+  if (!state.sessions.length) {
+    container.innerHTML = `<div class="session-empty">No sessions yet. Start with a prompt and the results will appear here.</div>`;
+    return;
+  }
+
+  container.innerHTML = state.sessions
+    .map((session) => {
+      const isActive = session.id === state.sessionId;
+      const title = truncateText(session.user_prompt || "Untitled session", 72);
+      const status = formatRunLabel(session.status || "pending");
+      const updated = formatRelativeDate(session.updated_at || session.created_at);
+      return `
+        <article class="session-item ${isActive ? "is-active" : ""}">
+          <span class="session-item-row">
+            <button class="session-open" type="button" data-session-id="${escapeAttribute(session.id)}">
+              <span class="session-item-title">${escapeHtml(title)}</span>
+            </button>
+            <span>
+              <button class="session-delete" type="button" data-delete-session-id="${escapeAttribute(
+                session.id
+              )}" aria-label="Delete session">Delete</button>
+            </span>
+          </span>
+          <span class="session-item-meta">${escapeHtml(status)} · ${escapeHtml(updated)}</span>
+        </article>
+      `;
+    })
+    .join("");
+
+  container.querySelectorAll("[data-session-id]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const nextSessionId = button.dataset.sessionId;
+      if (!nextSessionId || nextSessionId === state.sessionId) {
+        return;
+      }
+      try {
+        await loadDashboard(nextSessionId);
+      } catch (error) {
+        console.error(error);
+        showErrorState("Unable to open session", error.message || "That session could not be loaded.");
+      }
+    });
+  });
+
+  container.querySelectorAll("[data-delete-session-id]").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetSessionId = button.dataset.deleteSessionId;
+      if (!targetSessionId) {
+        return;
+      }
+      const session = state.sessions.find((entry) => entry.id === targetSessionId);
+      const label = session?.user_prompt ? truncateText(session.user_prompt, 60) : "this session";
+      const confirmed = window.confirm(`Delete ${label}? This will remove the saved run and dashboard state.`);
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        await deleteRequest(`/api/sessions/${encodeURIComponent(targetSessionId)}`);
+        const deletedCurrentSession = targetSessionId === state.sessionId;
+        await loadSessions();
+        if (deletedCurrentSession) {
+          beginNewSessionDraft();
+        } else {
+          renderDashboard();
+        }
+      } catch (error) {
+        console.error(error);
+        showErrorState("Unable to delete session", error.message || "The session could not be deleted.");
+      }
+    });
+  });
 }
 
 function renderConfidencePanel() {
@@ -525,6 +739,21 @@ function toggleChat() {
   button.setAttribute("aria-expanded", String(!state.chatCollapsed));
 }
 
+function toggleSidebar() {
+  state.sidebarCollapsed = !state.sidebarCollapsed;
+  applySidebarState();
+}
+
+function applySidebarState() {
+  document.body.dataset.sidebarCollapsed = String(state.sidebarCollapsed);
+  localStorage.setItem("market-mapper-sidebar-collapsed", String(state.sidebarCollapsed));
+  const button = document.getElementById("sidebar-toggle");
+  if (button) {
+    button.textContent = state.sidebarCollapsed ? "Open" : "Collapse";
+    button.setAttribute("aria-expanded", String(!state.sidebarCollapsed));
+  }
+}
+
 function downloadMarkdown() {
   const reportDownloadUrl = state.dashboard?.report.downloadUrl;
   if (reportDownloadUrl) {
@@ -547,6 +776,7 @@ function renderAppState({ eyebrow, title, body, showRetry }) {
   document.getElementById("app-state-title").textContent = title;
   document.getElementById("app-state-body").textContent = body;
   document.getElementById("app-state-retry").hidden = !showRetry;
+  document.getElementById("app-state-progress").hidden = true;
 }
 
 function hideAppState() {
@@ -570,6 +800,8 @@ function syncControlState() {
   document.getElementById("download-report").disabled = disabled;
   document.getElementById("chat-input").disabled = disabled;
   document.querySelector("#chat-form button[type='submit']").disabled = disabled;
+  document.getElementById("prompt-submit").disabled = state.loading;
+  document.getElementById("prompt-clear").disabled = state.loading;
 }
 
 function mapSnapshotToDashboard({ session, runStatus, payload }) {
@@ -803,6 +1035,21 @@ function storeSessionId(sessionId) {
   window.history.replaceState({}, "", url);
 }
 
+function clearStoredSessionId() {
+  localStorage.removeItem("market-mapper-session-id");
+  const url = new URL(window.location.href);
+  url.searchParams.delete("session_id");
+  window.history.replaceState({}, "", url);
+}
+
+function openFreshWorkspace() {
+  localStorage.removeItem("market-mapper-session-id");
+  const url = new URL(window.location.href);
+  url.searchParams.delete("session_id");
+  url.hash = "";
+  window.location.assign(url.toString());
+}
+
 function isRunPending(status) {
   return ["pending", "running", "waiting_for_approval"].includes(String(status));
 }
@@ -814,6 +1061,33 @@ function buildRunProgressMessage(runStatus) {
   }.`;
 }
 
+function renderRunProgress(runStatus) {
+  const progressPanel = document.getElementById("app-state-progress");
+  const percent = Math.max(3, Math.min(Math.round(runStatus?.progress?.percent_complete || 0), 100));
+  const stage = formatStageLabel(runStatus?.progress?.current_node || runStatus?.run?.current_node || "starting");
+  progressPanel.hidden = false;
+  document.getElementById("app-state-stage").textContent = stage;
+  document.getElementById("app-state-percent").textContent = `${percent}%`;
+  document.getElementById("app-state-progress-bar").style.width = `${percent}%`;
+}
+
+function formatStageLabel(value) {
+  const labels = {
+    planner: "Planning the research",
+    executor: "Coordinating the workflow",
+    company_discovery: "Finding the right companies",
+    web_research: "Collecting public sources",
+    structured_extraction: "Normalizing company data",
+    comparison: "Comparing the market",
+    critic_verifier: "Verifying the evidence",
+    report_generation: "Writing the report",
+    chart_generation: "Rendering charts",
+    dashboard_builder: "Building the dashboard",
+    session_chatbot: "Preparing follow-up chat",
+  };
+  return labels[value] || formatRunLabel(value);
+}
+
 async function fetchRunStatus(runId) {
   return fetchJson(`/api/runs/${encodeURIComponent(runId)}`);
 }
@@ -821,11 +1095,50 @@ async function fetchRunStatus(runId) {
 async function fetchJson(url) {
   const response = await fetch(url);
   if (!response.ok) {
-    const error = new Error(`Request failed with status ${response.status}`);
+    const payload = await readErrorPayload(response);
+    const error = new Error(payload || `Request failed with status ${response.status}`);
     error.status = response.status;
     throw error;
   }
   return response.json();
+}
+
+async function postJson(url, payload) {
+  const response = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const message = await readErrorPayload(response);
+    const error = new Error(message || `Request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+  return response.json();
+}
+
+async function deleteRequest(url) {
+  const response = await fetch(url, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    const message = await readErrorPayload(response);
+    const error = new Error(message || `Request failed with status ${response.status}`);
+    error.status = response.status;
+    throw error;
+  }
+}
+
+async function readErrorPayload(response) {
+  try {
+    const payload = await response.json();
+    return payload.detail || payload.message || null;
+  } catch (_error) {
+    return null;
+  }
 }
 
 function sleep(ms) {
@@ -929,4 +1242,33 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
   return escapeHtml(value);
+}
+
+function truncateText(value, maxLength) {
+  const text = String(value);
+  return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
+}
+
+function formatRelativeDate(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.valueOf())) {
+    return "recently";
+  }
+  const diffMs = Date.now() - date.getTime();
+  const diffMinutes = Math.max(Math.round(diffMs / 60000), 0);
+  if (diffMinutes < 1) {
+    return "just now";
+  }
+  if (diffMinutes < 60) {
+    return `${diffMinutes}m ago`;
+  }
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) {
+    return `${diffHours}h ago`;
+  }
+  const diffDays = Math.round(diffHours / 24);
+  if (diffDays < 7) {
+    return `${diffDays}d ago`;
+  }
+  return date.toLocaleDateString();
 }

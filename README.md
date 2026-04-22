@@ -52,7 +52,7 @@ Optional environment variables:
 export OPENAI_MODEL="gpt-5-mini"
 export OPENAI_REASONING_EFFORT="low"
 export OPENAI_ENABLE_WEB_SEARCH="true"
-export MARKET_MAPPER_STATE_DIR=".market_mapper/state"
+export MARKET_MAPPER_STATE_DIR="/tmp/market_mapper/state"
 ```
 
 Notes:
@@ -61,6 +61,7 @@ Notes:
 - `OPENAI_REASONING_EFFORT` defaults to `low`
 - `OPENAI_ENABLE_WEB_SEARCH` controls whether web-enabled agents request OpenAI web search tools
 - `MARKET_MAPPER_STATE_DIR` controls where sessions, runs, snapshots, and sandbox artifacts are stored
+- by default it uses `/tmp/market_mapper/state` so `uvicorn --reload` does not restart the server every time workflow state is written
 
 ## Installation
 
@@ -78,7 +79,7 @@ python -m playwright install
 Start the API server from the project root:
 
 ```bash
-uvicorn market_mapper.api.app:app --reload
+python -m uvicorn market_mapper.api.app:app --reload
 ```
 
 Once the server is running:

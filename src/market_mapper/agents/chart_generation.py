@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from market_mapper.charts import build_fallback_chart_specs, validate_chart_specs
+from market_mapper.charts.service import build_fallback_chart_specs, validate_chart_specs
 from market_mapper.services import generate_structured_output, render_agent_input
 from market_mapper.workflow.contracts import (
     ChartGenerationNodeInput,

@@ -8,14 +8,33 @@
   </head>
   <body>
     <div class="dashboard-shell">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">MM</div>
-          <div>
-            <p class="eyebrow">Market Mapper</p>
-            <h1>Research Console</h1>
+      <aside id="session-sidebar" class="sidebar">
+        <div class="sidebar-top">
+          <div class="brand">
+            <div class="brand-mark">MM</div>
+            <div class="sidebar-copy">
+              <p class="eyebrow">Market Mapper</p>
+              <h1>Research Console</h1>
+            </div>
           </div>
+          <button id="sidebar-toggle" class="ghost-button sidebar-toggle" type="button" aria-expanded="true">
+            Collapse
+          </button>
         </div>
+
+        <div class="sidebar-actions">
+          <button id="new-session" class="primary-button" type="button">New Session</button>
+        </div>
+
+        <section class="session-rail">
+          <div class="section-header sidebar-section-header">
+            <div>
+              <p class="eyebrow">Sessions</p>
+              <h3>Recent research</h3>
+            </div>
+          </div>
+          <div id="session-list" class="session-list"></div>
+        </section>
 
         <nav class="nav-list" aria-label="Dashboard sections">
           <button class="nav-item is-active" data-target="summary">Summary</button>
@@ -29,7 +48,7 @@
         <div class="sidebar-footer">
           <p id="run-status-label" class="status-pill"></p>
           <p class="sidebar-note">
-            Every section reflects the approved session state, including artifact-backed charts and the downloadable report.
+            Each session opens its own research dashboard. Start a new one from the left rail, or jump back into a previous run.
           </p>
         </div>
       </aside>
@@ -58,9 +77,42 @@
           <p id="app-state-eyebrow" class="eyebrow">Loading</p>
           <h3 id="app-state-title">Fetching dashboard</h3>
           <p id="app-state-body" class="hero-summary"></p>
+          <div id="app-state-progress" class="app-progress" hidden>
+            <div class="app-progress-meta">
+              <span id="app-state-stage">Starting</span>
+              <span id="app-state-percent">0%</span>
+            </div>
+            <div class="app-progress-track" aria-hidden="true">
+              <div id="app-state-progress-bar" class="app-progress-bar"></div>
+            </div>
+          </div>
           <button id="app-state-retry" class="ghost-button" type="button" hidden>
             Retry
           </button>
+        </section>
+
+        <section id="composer-panel" class="panel composer-panel">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">New Research</p>
+              <h3 id="composer-title">Start with a prompt</h3>
+            </div>
+          </div>
+          <p id="composer-body" class="hero-summary">
+            Ask for a market comparison and this page will fill in as the agents research, extract, compare, and verify the results.
+          </p>
+          <form id="prompt-form" class="prompt-form">
+            <label class="sr-only" for="prompt-input">Research prompt</label>
+            <textarea
+              id="prompt-input"
+              rows="4"
+              placeholder="Analyze 4 of the largest companies in AI customer support and create a comparison report"
+            ></textarea>
+            <div class="prompt-actions">
+              <button id="prompt-submit" class="primary-button" type="submit">Run Research</button>
+              <button id="prompt-clear" class="ghost-button" type="button">Clear</button>
+            </div>
+          </form>
         </section>
 
         <main class="content-grid">

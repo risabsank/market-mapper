@@ -11,7 +11,7 @@ from market_mapper.research import (
     capture_page_snapshot,
     extract_page_content_from_file,
 )
-from market_mapper.charts import render_chart_artifacts, validate_chart_specs
+from market_mapper.charts.service import render_chart_artifacts, validate_chart_specs
 from market_mapper.schemas.models import CompanyCandidate, ResearchPlan, SourceDocument
 from market_mapper.schemas.models import ChartSpec, ComparisonResult
 from market_mapper.schemas.models.common import ArtifactKind

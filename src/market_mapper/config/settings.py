@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from functools import lru_cache
 
 from market_mapper.schemas.models.common import MarketMapperModel
@@ -15,7 +16,8 @@ class Settings(MarketMapperModel):
     openai_model: str = "gpt-5-mini"
     openai_reasoning_effort: str = "low"
     openai_enable_web_search: bool = True
-    workflow_state_dir: str = ".market_mapper/state"
+    max_research_retries: int = 2
+    workflow_state_dir: str = str(Path("/tmp/market_mapper/state"))
 
 
 @lru_cache(maxsize=1)
@@ -29,6 +31,6 @@ def get_settings() -> Settings:
         openai_enable_web_search=(
             os.getenv("OPENAI_ENABLE_WEB_SEARCH", "true").lower() in {"1", "true", "yes"}
         ),
-        workflow_state_dir=os.getenv("MARKET_MAPPER_STATE_DIR", ".market_mapper/state"),
+        max_research_retries=max(0, int(os.getenv("MARKET_MAPPER_MAX_RESEARCH_RETRIES", "2"))),
+        workflow_state_dir=os.getenv("MARKET_MAPPER_STATE_DIR", str(Path("/tmp/market_mapper/state"))),
     )
-

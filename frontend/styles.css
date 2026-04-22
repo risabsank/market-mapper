@@ -75,6 +75,11 @@ a {
   min-height: 100vh;
   gap: 20px;
   padding: 20px;
+  transition: grid-template-columns 0.2s ease;
+}
+
+body[data-sidebar-collapsed="true"] .dashboard-shell {
+  grid-template-columns: 88px minmax(0, 1fr);
 }
 
 .sidebar,
@@ -90,6 +95,18 @@ a {
   flex-direction: column;
   padding: 24px 18px;
   gap: 22px;
+  min-width: 0;
+}
+
+.sidebar-top {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sidebar-copy {
+  min-width: 0;
 }
 
 .brand {
@@ -131,6 +148,95 @@ a {
 .nav-list {
   display: grid;
   gap: 8px;
+}
+
+.session-rail {
+  display: grid;
+  gap: 12px;
+}
+
+.sidebar-section-header {
+  margin-bottom: 0;
+}
+
+.sidebar-toggle {
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
+.sidebar-actions {
+  display: grid;
+}
+
+.session-list {
+  display: grid;
+  gap: 10px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.session-item {
+  width: 100%;
+  text-align: left;
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+  color: var(--text);
+  display: grid;
+  gap: 6px;
+}
+
+.session-item-row {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.session-open {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+  flex: 1;
+}
+
+.session-item.is-active {
+  border-color: transparent;
+  background: var(--accent-soft);
+}
+
+.session-item-title {
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.session-item-meta {
+  font-size: 0.86rem;
+  color: var(--muted);
+}
+
+.session-delete {
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  color: var(--muted);
+  border-radius: 8px;
+  padding: 6px 8px;
+  line-height: 1;
+}
+
+.session-delete:hover {
+  color: var(--warning);
+}
+
+.session-empty {
+  padding: 14px;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  background: var(--panel-muted);
 }
 
 .nav-item {
@@ -183,6 +289,33 @@ a {
   gap: 18px;
 }
 
+.composer-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.prompt-form {
+  display: grid;
+  gap: 14px;
+}
+
+.prompt-form textarea {
+  width: 100%;
+  min-height: 132px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-muted);
+  color: var(--text);
+  resize: vertical;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -223,6 +356,10 @@ a {
   align-items: start;
 }
 
+.content-grid[hidden] {
+  display: none;
+}
+
 .primary-column {
   display: grid;
   gap: 18px;
@@ -236,6 +373,36 @@ a {
   display: grid;
   gap: 12px;
   align-items: start;
+}
+
+.app-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.app-progress-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.app-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: var(--panel-muted);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.app-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 0.25s ease;
 }
 
 .hero-panel {
@@ -609,6 +776,28 @@ th {
   color: var(--warning);
 }
 
+body[data-sidebar-collapsed="true"] .sidebar {
+  padding-inline: 14px;
+}
+
+body[data-sidebar-collapsed="true"] .sidebar-copy,
+body[data-sidebar-collapsed="true"] .sidebar-actions .primary-button,
+body[data-sidebar-collapsed="true"] .session-rail,
+body[data-sidebar-collapsed="true"] .nav-list,
+body[data-sidebar-collapsed="true"] .sidebar-note,
+body[data-sidebar-collapsed="true"] #run-status-label {
+  display: none;
+}
+
+body[data-sidebar-collapsed="true"] .sidebar-top {
+  justify-content: center;
+}
+
+body[data-sidebar-collapsed="true"] .sidebar-footer {
+  margin-top: auto;
+  justify-items: center;
+}
+
 body[data-chat-collapsed="true"] .content-grid {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -631,6 +820,10 @@ body[data-chat-collapsed="true"] .chat-sidebar {
   .split-layout,
   .plan-grid {
     grid-template-columns: 1fr;
+  }
+
+  .session-list {
+    max-height: none;
   }
 
   .chat-sidebar {
@@ -661,5 +854,9 @@ body[data-chat-collapsed="true"] .chat-sidebar {
   .pricing-grid,
   .chart-grid {
     grid-template-columns: 1fr;
+  }
+
+  .prompt-actions {
+    flex-direction: column;
   }
 }

@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 
 from market_mapper.schemas.models import WorkflowRun
 from market_mapper.services import (
+    get_run_job_manager,
     RunNotFoundError,
     RunStatusResponse,
     SessionNotFoundError,
@@ -21,7 +22,9 @@ def start_run(session_id: str) -> WorkflowRun:
 
     service = WorkflowService()
     try:
-        return service.start_run(session_id)
+        run = service.create_run(session_id)
+        get_run_job_manager().submit(run.id)
+        return run
     except SessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}") from exc
     except Exception as exc:

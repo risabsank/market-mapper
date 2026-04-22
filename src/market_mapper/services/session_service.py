@@ -118,6 +118,11 @@ class SessionStateService:
             ApprovedSessionSnapshot,
         )
 
+    def delete_approved_snapshot(self, session_id: str) -> None:
+        path = self.snapshots_dir / f"{session_id}.json"
+        if path.exists():
+            path.unlink()
+
     def resolve_chat_request(self, request: SessionChatRequest) -> ApprovedSessionSnapshot:
         return self.load_approved_snapshot(request.session_id)
 

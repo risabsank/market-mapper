@@ -53,6 +53,12 @@ class FileWorkflowStateStore:
             key=lambda session: session.created_at,
         )
 
+    def delete_session(self, session_id: str) -> None:
+        path = self.sessions_dir / f"{session_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
+
     def save_run(self, run: WorkflowRun) -> None:
         run.touch()
         self._write_model(self.runs_dir / f"{run.id}.json", run)
@@ -70,6 +76,12 @@ class FileWorkflowStateStore:
             key=lambda run: run.created_at,
         )
 
+    def delete_run(self, run_id: str) -> None:
+        path = self.runs_dir / f"{run_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
+
     def save_dashboard_state(self, dashboard_state: DashboardState) -> None:
         dashboard_state.touch()
         self._write_model(
@@ -82,6 +94,12 @@ class FileWorkflowStateStore:
             self.dashboards_dir / f"{dashboard_state_id}.json",
             DashboardState,
         )
+
+    def delete_dashboard_state(self, dashboard_state_id: str) -> None:
+        path = self.dashboards_dir / f"{dashboard_state_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
 
     def add_agent_task(self, run_id: str, task: AgentTask) -> WorkflowRun:
         run = self.load_run(run_id)
@@ -131,6 +149,12 @@ class FileWorkflowStateStore:
             key=lambda task: task.created_at,
         )
 
+    def delete_sandbox_task(self, sandbox_task_id: str) -> None:
+        path = self.sandbox_tasks_dir / f"{sandbox_task_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
+
     def add_artifact(self, run_id: str, artifact: SandboxArtifact) -> WorkflowRun:
         run = self.load_run(run_id)
         run.add_artifact(artifact.id)
@@ -166,6 +190,12 @@ class FileWorkflowStateStore:
             (artifact for artifact in artifacts if artifact.run_id == run_id),
             key=lambda artifact: artifact.created_at,
         )
+
+    def delete_artifact(self, artifact_id: str) -> None:
+        path = self.artifacts_dir / f"{artifact_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
 
     def approve_run(self, run_id: str, approval: ApprovalRecord) -> WorkflowRun:
         run = self.load_run(run_id)

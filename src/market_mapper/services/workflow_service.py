@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from pydantic import Field
@@ -13,6 +14,8 @@ from market_mapper.services.session_service import ApprovedSessionSnapshot, Sess
 from market_mapper.storage import FileWorkflowStateStore
 from market_mapper.workflow import build_research_graph
 from market_mapper.workflow.state import ResearchWorkflowState
+
+logger = logging.getLogger("market_mapper.workflow_service")
 
 
 class WorkflowServiceError(RuntimeError):
@@ -29,6 +32,10 @@ class RunNotFoundError(WorkflowServiceError):
 
 class DashboardNotReadyError(WorkflowServiceError):
     """Raised when approved dashboard outputs are not available yet."""
+
+
+class SessionDeleteError(WorkflowServiceError):
+    """Raised when a session cannot be deleted cleanly."""
 
 
 class RunProgress(MarketMapperModel):
@@ -109,7 +116,48 @@ class WorkflowService:
         except FileNotFoundError as exc:
             raise SessionNotFoundError(session_id) from exc
 
-    def start_run(self, session_id: str) -> WorkflowRun:
+    def list_sessions(self) -> list[ResearchSession]:
+        """Return all stored sessions, newest first for the dashboard rail."""
+
+        return sorted(
+            self.state_store.list_sessions(),
+            key=lambda session: session.updated_at,
+            reverse=True,
+        )
+
+    def delete_session(self, session_id: str) -> None:
+        """Delete a session and its durable workflow artifacts."""
+
+        session = self.get_session(session_id)
+
+        run_ids = list(session.run_ids)
+        if session.active_run_id and session.active_run_id not in run_ids:
+            run_ids.append(session.active_run_id)
+
+        for run_id in run_ids:
+            try:
+                for sandbox_task in self.state_store.list_sandbox_tasks_for_run(run_id):
+                    self.state_store.delete_sandbox_task(sandbox_task.id)
+                for artifact in self.state_store.list_artifacts_for_run(run_id):
+                    self.state_store.delete_artifact(artifact.id)
+                self.state_store.delete_run(run_id)
+            except FileNotFoundError:
+                continue
+
+        if session.dashboard_state_id:
+            try:
+                self.state_store.delete_dashboard_state(session.dashboard_state_id)
+            except FileNotFoundError:
+                pass
+
+        self.session_state_service.delete_approved_snapshot(session.id)
+
+        try:
+            self.state_store.delete_session(session.id)
+        except FileNotFoundError as exc:
+            raise SessionDeleteError(session.id) from exc
+
+    def create_run(self, session_id: str) -> WorkflowRun:
         session = self.get_session(session_id)
         run = WorkflowRun(session_id=session.id)
         session.attach_run(run.id, activate=True)
@@ -117,7 +165,22 @@ class WorkflowService:
         run.mark_running(current_node="planner")
         self.state_store.save_session(session)
         self.state_store.save_run(run)
+        logger.info("Created workflow run %s for session %s.", run.id, session.id)
+        return run
 
+    def execute_run(self, run_id: str) -> WorkflowRun:
+        try:
+            run = self.state_store.load_run(run_id)
+        except FileNotFoundError as exc:
+            raise RunNotFoundError(run_id) from exc
+
+        session = self.get_session(run.session_id)
+        logger.info(
+            "Executing workflow run %s for session %s with prompt: %s",
+            run.id,
+            session.id,
+            session.user_prompt,
+        )
         state = ResearchWorkflowState(
             session=session,
             run=run,
@@ -131,11 +194,21 @@ class WorkflowService:
             session.status = run.status
             self.state_store.save_run(run)
             self.state_store.save_session(session)
+            logger.exception("Workflow run %s failed before completion.", run.id)
             raise
 
         final_state.session.status = final_state.run.status
         self._persist_state(final_state)
+        logger.info(
+            "Workflow run %s finished with status %s.",
+            final_state.run.id,
+            final_state.run.status,
+        )
         return final_state.run
+
+    def start_run(self, session_id: str) -> WorkflowRun:
+        run = self.create_run(session_id)
+        return self.execute_run(run.id)
 
     def get_run_status(self, run_id: str) -> RunStatusResponse:
         try:

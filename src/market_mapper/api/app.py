@@ -16,6 +16,7 @@ from market_mapper.api.routes import (
     runs_router,
     sessions_router,
 )
+from market_mapper.services import get_run_job_manager
 
 
 def create_app() -> FastAPI:
@@ -42,6 +43,10 @@ def create_app() -> FastAPI:
     @app.get("/")
     def root() -> RedirectResponse:
         return RedirectResponse(url="/dashboard/")
+
+    @app.on_event("shutdown")
+    def shutdown_run_manager() -> None:
+        get_run_job_manager().shutdown()
 
     return app
 
