@@ -18,7 +18,13 @@ from .common import (
     VerificationSeverity,
     WorkflowCheckpoint,
 )
-from .company import CompanyCandidate, CompanyProfile, ExtractedClaim, SourceDocument
+from .company import (
+    CompanyCandidate,
+    CompanyDiscoveryEvidence,
+    CompanyProfile,
+    ExtractedClaim,
+    SourceDocument,
+)
 from .comparison import (
     ChartSpec,
     ComparisonFinding,
@@ -44,6 +50,7 @@ __all__ = [
     "ArtifactKind",
     "ChartSpec",
     "CompanyCandidate",
+    "CompanyDiscoveryEvidence",
     "CompanyProfile",
     "ComparisonFinding",
     "ComparisonResult",

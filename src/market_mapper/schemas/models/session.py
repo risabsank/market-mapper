@@ -25,6 +25,7 @@ class ResearchPlan(MarketMapperModel):
     id: str = Field(default_factory=lambda: make_id("plan"))
     market_query: str
     requested_company_count: int = Field(default=4, ge=1, le=10)
+    named_companies: list[str] = Field(default_factory=list)
     geography: str | None = None
     target_segment: str | None = None
     discovery_criteria: list[str] = Field(default_factory=list)
@@ -292,4 +293,3 @@ class ResearchSession(MarketMapperModel):
     def attach_dashboard(self, dashboard_state_id: str) -> None:
         self.dashboard_state_id = dashboard_state_id
         self.touch()
-

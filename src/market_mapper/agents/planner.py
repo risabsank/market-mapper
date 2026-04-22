@@ -14,6 +14,7 @@ Turn the user's research request into a structured research plan.
 Rules:
 - Produce a market_query that captures the actual market or company set to study.
 - requested_company_count must be between 1 and 10. Default to 4 when unspecified.
+- If the user explicitly names companies, include them in named_companies and set requested_company_count to the number of named companies unless the prompt clearly says otherwise.
 - Fill discovery_criteria with the criteria the downstream discovery agent should use.
 - Fill comparison_dimensions with useful dimensions implied by the prompt. Include practical business dimensions such as pricing, features, positioning, target_customers, integrations, ai_capabilities, or proof_points when relevant.
 - Record explicit assumptions when the prompt is ambiguous.
@@ -56,4 +57,3 @@ def run_research_planner(node_input: PlannerNodeInput) -> PlannerNodeOutput:
         assumptions=plan.assumptions,
         next_route="executor",
     )
-

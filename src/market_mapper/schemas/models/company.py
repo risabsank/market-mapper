@@ -35,6 +35,14 @@ class ExtractedClaim(MarketMapperModel):
     notes: str | None = None
 
 
+class CompanyDiscoveryEvidence(MarketMapperModel):
+    """Evidence item supporting why a company should be selected."""
+
+    label: str
+    detail: str
+    source_url: str | None = None
+
+
 class CompanyCandidate(MarketMapperModel):
     """Candidate company surfaced by discovery before deep research."""
 
@@ -44,6 +52,7 @@ class CompanyCandidate(MarketMapperModel):
     market_category: str | None = None
     rationale: str
     score: float = Field(default=0.0, ge=0.0)
+    evidence: list[CompanyDiscoveryEvidence] = Field(default_factory=list)
     evidence_source_ids: list[str] = Field(default_factory=list)
     public_signals: dict[str, Any] = Field(default_factory=dict)
 
@@ -76,4 +85,3 @@ class CompanyProfile(MarketMapperModel):
 
     def touch(self) -> None:
         self.updated_at = utc_now()
-
