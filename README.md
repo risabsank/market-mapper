@@ -132,12 +132,12 @@ Implemented so far:
 - LangGraph workflow skeleton with planner/executor routing
 - OpenAI-powered specialist agent layer using structured outputs
 - trusted-harness sandbox layer with route-specific sandbox tasks and artifact generation
+- sandbox-backed web research using Playwright page capture plus extracted text artifacts
 
 Not implemented yet:
 
 - real backend API endpoints
 - real frontend dashboard
-- actual browser automation and extraction plumbing behind the web research path
 
 ## Running Tests
 

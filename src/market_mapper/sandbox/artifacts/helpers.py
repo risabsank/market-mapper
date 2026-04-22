@@ -57,6 +57,26 @@ def write_text_artifact(
     )
 
 
+def register_file_artifact(
+    *,
+    path: str | Path,
+    label: str,
+    kind: ArtifactKind,
+    content_type: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> SandboxFileArtifact:
+    """Register an already-written file as a sandbox artifact."""
+
+    resolved_path = Path(path)
+    return SandboxFileArtifact(
+        kind=kind,
+        label=label,
+        path=str(resolved_path),
+        content_type=content_type,
+        metadata=metadata or {},
+    )
+
+
 def validate_file_artifacts(artifacts: list[SandboxFileArtifact]) -> list[str]:
     """Validate that declared artifact paths exist on disk."""
 

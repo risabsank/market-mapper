@@ -6,8 +6,18 @@ from abc import ABC, abstractmethod
 import json
 from pathlib import Path
 
+from market_mapper.research import (
+    build_research_targets,
+    capture_page_snapshot,
+    extract_page_content_from_file,
+)
+from market_mapper.schemas.models import CompanyCandidate, ResearchPlan, SourceDocument
 from market_mapper.schemas.models.common import ArtifactKind
-from market_mapper.sandbox.artifacts.helpers import write_json_artifact, write_text_artifact
+from market_mapper.sandbox.artifacts.helpers import (
+    register_file_artifact,
+    write_json_artifact,
+    write_text_artifact,
+)
 from market_mapper.sandbox.contracts import SandboxExecutionRequest, SandboxExecutionResult
 
 
@@ -68,29 +78,132 @@ class LocalSandboxRuntime(SandboxRuntime):
 
     def _handle_web_research(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
-        artifacts = [
+        research_plan = ResearchPlan.model_validate(request.payload.get("research_plan", {}))
+        company_candidates = [
+            CompanyCandidate.model_validate(candidate)
+            for candidate in request.payload.get("company_candidates", [])
+        ]
+        suggested_documents = [
+            SourceDocument.model_validate(document)
+            for document in request.payload.get("source_documents", [])
+        ]
+        existing_documents = [
+            SourceDocument.model_validate(document)
+            for document in request.payload.get("existing_documents", [])
+        ]
+        targets = build_research_targets(
+            research_plan=research_plan,
+            company_candidates=company_candidates,
+            suggested_documents=suggested_documents,
+            existing_documents=existing_documents,
+        )
+        captures_dir = working_dir / "captures"
+        captures_dir.mkdir(parents=True, exist_ok=True)
+        artifacts = []
+        source_documents = []
+        failures = []
+        for index, target in enumerate(targets, start=1):
+            try:
+                capture = capture_page_snapshot(target=target, output_dir=captures_dir)
+                parsed = extract_page_content_from_file(
+                    html_path=capture.html_path,
+                    url=capture.final_url,
+                    title=capture.title,
+                )
+            except Exception as exc:  # pragma: no cover - exercised in integration/runtime
+                failures.append({"url": target.url, "error": str(exc), "company_name": target.company_name})
+                continue
+
+            html_label = f"{target.company_name} page HTML {index}"
+            screenshot_label = f"{target.company_name} page snapshot {index}"
+            text_filename = f"extracted_{index:02d}.txt"
+            text_artifact = write_text_artifact(
+                root_dir=working_dir,
+                filename=text_filename,
+                label=f"{target.company_name} extracted text {index}",
+                content=parsed.extracted_text,
+                kind=ArtifactKind.EXTRACTED_TEXT,
+                metadata={
+                    "company_name": target.company_name,
+                    "requested_url": target.url,
+                    "final_url": capture.final_url,
+                },
+            )
+            html_artifact = register_file_artifact(
+                path=capture.html_path,
+                label=html_label,
+                kind=ArtifactKind.PAGE_SNAPSHOT,
+                content_type="text/html",
+                metadata={
+                    "company_name": target.company_name,
+                    "requested_url": target.url,
+                    "final_url": capture.final_url,
+                    "source_type": target.source_type,
+                },
+            )
+            artifacts.extend([html_artifact, text_artifact])
+            screenshot_path = capture.screenshot_path
+            if screenshot_path:
+                artifacts.append(
+                    register_file_artifact(
+                        path=screenshot_path,
+                        label=screenshot_label,
+                        kind=ArtifactKind.PAGE_SNAPSHOT,
+                        content_type="image/png",
+                        metadata={
+                            "company_name": target.company_name,
+                            "requested_url": target.url,
+                            "final_url": capture.final_url,
+                            "source_type": target.source_type,
+                        },
+                    )
+                )
+
+            source_documents.append(
+                {
+                    "url": capture.final_url,
+                    "title": parsed.title,
+                    "source_type": target.source_type,
+                    "snippet": parsed.snippet,
+                    "metadata": {
+                        "company_name": target.company_name,
+                        "requested_url": target.url,
+                        "source_rationale": target.rationale,
+                        "status_code": capture.status_code,
+                        "html_path": capture.html_path,
+                        "screenshot_path": capture.screenshot_path,
+                        "extracted_text_path": text_artifact.path,
+                        "word_count": parsed.word_count,
+                        "headings": parsed.headings,
+                    },
+                }
+            )
+
+        manifest_payload = {
+            "target_count": len(targets),
+            "captured_count": len(source_documents),
+            "failures": failures,
+            "source_documents": source_documents,
+        }
+        artifacts.append(
             write_json_artifact(
                 root_dir=working_dir,
                 filename="web_research_manifest.json",
                 label="Web research manifest",
-                payload=request.payload,
+                payload=manifest_payload,
                 metadata={"route_name": request.route_name},
-            ),
-            write_text_artifact(
-                root_dir=working_dir,
-                filename="source_snapshot.txt",
-                label="Source snapshot summary",
-                content="Sandbox captured a placeholder browser research snapshot.",
-                kind=ArtifactKind.PAGE_SNAPSHOT,
-                metadata={"route_name": request.route_name},
-            ),
-        ]
+            )
+        )
         return SandboxExecutionResult(
             sandbox_task_id=request.sandbox_task_id,
             route_name=request.route_name,
             working_directory=str(working_dir),
-            summary="Sandbox prepared browser-research artifacts.",
+            summary=(
+                f"Sandbox captured {len(source_documents)} source pages"
+                + (f" with {len(failures)} capture failures." if failures else ".")
+            ),
             artifacts=artifacts,
+            metadata=manifest_payload,
         )
 
     def _handle_structured_extraction(
