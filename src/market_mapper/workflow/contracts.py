@@ -30,6 +30,7 @@ WorkflowRoute = Literal[
     "structured_extraction",
     "comparison",
     "critic_verifier",
+    "output_generation",
     "report_generation",
     "chart_generation",
     "dashboard_builder",

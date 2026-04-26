@@ -39,6 +39,7 @@
         <nav class="nav-list" aria-label="Dashboard sections">
           <button class="nav-item is-active" data-target="summary">Summary</button>
           <button class="nav-item" data-target="plan">Research Plan</button>
+          <button class="nav-item" data-target="activity">Activity</button>
           <button class="nav-item" data-target="comparison">Comparison</button>
           <button class="nav-item" data-target="pricing">Pricing</button>
           <button class="nav-item" data-target="sources">Sources</button>
@@ -166,6 +167,16 @@
             </section>
 
             <section class="split-layout">
+              <section id="activity" class="panel">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Live Activity</p>
+                    <h3>Parallel worker updates</h3>
+                  </div>
+                </div>
+                <div id="live-events" class="section-card-list"></div>
+              </section>
+
               <section id="comparison" class="panel">
                 <div class="section-header">
                   <div>

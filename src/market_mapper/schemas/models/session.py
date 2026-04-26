@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import Field
 
+from .company import CompanyProfile, SourceDocument
+from .comparison import ComparisonResult, Report
 from .common import (
     ApprovalRecord,
     MarketMapperModel,
@@ -265,10 +267,83 @@ class DashboardState(MarketMapperModel):
         self.updated_at = utc_now()
 
 
+WorkspaceSectionStatusValue = Literal["pending", "running", "complete", "blocked"]
+
+
+class CompanyWorkspaceStatus(MarketMapperModel):
+    """Incremental progress for one company while a run is in flight."""
+
+    id: str = Field(default_factory=lambda: make_id("company_workspace"))
+    company_candidate_id: str | None = None
+    company_profile_id: str | None = None
+    name: str
+    website: str | None = None
+    status: WorkspaceSectionStatusValue = "pending"
+    summary: str | None = None
+    source_document_ids: list[str] = Field(default_factory=list)
+    confidence: float | None = Field(default=None, ge=0.0, le=1.0)
+    missing_fields: list[str] = Field(default_factory=list)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+
+class WorkspaceSectionStatus(MarketMapperModel):
+    """Status for one dashboard/workflow section while the run is live."""
+
+    key: str
+    title: str
+    status: WorkspaceSectionStatusValue = "pending"
+    summary: str | None = None
+    progress_percent: float = Field(default=0.0, ge=0.0, le=100.0)
+    content_refs: list[str] = Field(default_factory=list)
+
+
+class WorkspaceSnapshot(MarketMapperModel):
+    """Durable progressive snapshot used before the final approved dashboard is ready."""
+
+    id: str = Field(default_factory=lambda: make_id("workspace"))
+    session_id: str
+    user_id: str
+    run_id: str | None = None
+    session_status: RunStatus = RunStatus.PENDING
+    prompt: str
+    research_plan: ResearchPlan | None = None
+    current_node: str | None = None
+    completed_tasks: int = 0
+    total_tasks: int = 0
+    percent_complete: float = Field(default=0.0, ge=0.0, le=100.0)
+    company_statuses: list[CompanyWorkspaceStatus] = Field(default_factory=list)
+    source_documents: list[SourceDocument] = Field(default_factory=list)
+    company_profiles: list[CompanyProfile] = Field(default_factory=list)
+    comparison_result: ComparisonResult | None = None
+    report: Report | None = None
+    chart_count: int = 0
+    dashboard_ready: bool = False
+    sections: list[WorkspaceSectionStatus] = Field(default_factory=list)
+    generated_at: datetime = Field(default_factory=utc_now)
+    updated_at: datetime = Field(default_factory=utc_now)
+
+    def touch(self) -> None:
+        self.updated_at = utc_now()
+
+
+class RunEvent(MarketMapperModel):
+    """API-facing event in the lifecycle of a workflow run."""
+
+    id: str = Field(default_factory=lambda: make_id("event"))
+    run_id: str
+    kind: str
+    message: str
+    node_name: str | None = None
+    task_id: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
 class ResearchSession(MarketMapperModel):
     """Top-level session state for one user research prompt."""
 
     id: str = Field(default_factory=lambda: make_id("session"))
+    user_id: str
     user_prompt: str
     normalized_prompt: str | None = None
     status: RunStatus = RunStatus.PENDING

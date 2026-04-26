@@ -36,10 +36,14 @@ from .comparison import (
 )
 from .session import (
     AgentTask,
+    CompanyWorkspaceStatus,
     DashboardSection,
     DashboardState,
     ResearchPlan,
     ResearchSession,
+    RunEvent,
+    WorkspaceSectionStatus,
+    WorkspaceSnapshot,
     WorkflowRun,
 )
 
@@ -49,6 +53,7 @@ __all__ = [
     "ApprovalStatus",
     "ArtifactKind",
     "ChartSpec",
+    "CompanyWorkspaceStatus",
     "CompanyCandidate",
     "CompanyDiscoveryEvidence",
     "CompanyProfile",
@@ -61,6 +66,7 @@ __all__ = [
     "ReportSection",
     "ResearchPlan",
     "ResearchSession",
+    "RunEvent",
     "RetryRecord",
     "RunStatus",
     "SandboxArtifact",
@@ -74,6 +80,8 @@ __all__ = [
     "VerificationIssue",
     "VerificationResult",
     "VerificationSeverity",
+    "WorkspaceSectionStatus",
+    "WorkspaceSnapshot",
     "WorkflowCheckpoint",
     "WorkflowRun",
 ]

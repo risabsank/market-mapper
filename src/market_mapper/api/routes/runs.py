@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
 
+from market_mapper.auth import AuthenticatedUser, CurrentUser
 from market_mapper.schemas.models import WorkflowRun
 from market_mapper.services import (
+    AuthorizationError,
     get_run_job_manager,
+    RunEventsResponse,
     RunNotFoundError,
     RunStatusResponse,
     SessionNotFoundError,
@@ -17,26 +20,43 @@ router = APIRouter(tags=["runs"])
 
 
 @router.post("/api/sessions/{session_id}/runs", response_model=WorkflowRun)
-def start_run(session_id: str) -> WorkflowRun:
+def start_run(session_id: str, user: AuthenticatedUser = CurrentUser) -> WorkflowRun:
     """Start a workflow run for an existing research session."""
 
     service = WorkflowService()
     try:
-        run = service.create_run(session_id)
+        run = service.create_run(session_id, user_id=user.user_id)
         get_run_job_manager().submit(run.id)
         return run
     except SessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Session not found: {session_id}") from exc
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Workflow run failed: {exc}") from exc
 
 
 @router.get("/api/runs/{run_id}", response_model=RunStatusResponse)
-def get_run_status(run_id: str) -> RunStatusResponse:
+def get_run_status(run_id: str, user: AuthenticatedUser = CurrentUser) -> RunStatusResponse:
     """Fetch run status and progress for one workflow run."""
 
     service = WorkflowService()
     try:
-        return service.get_run_status(run_id)
+        return service.get_run_status(run_id, user_id=user.user_id)
     except RunNotFoundError as exc:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}") from exc
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/api/runs/{run_id}/events", response_model=RunEventsResponse)
+def get_run_events(run_id: str, user: AuthenticatedUser = CurrentUser) -> RunEventsResponse:
+    """Fetch the event feed for one workflow run."""
+
+    service = WorkflowService()
+    try:
+        return service.get_run_events(run_id, user_id=user.user_id)
+    except RunNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}") from exc
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc

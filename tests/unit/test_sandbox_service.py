@@ -30,7 +30,7 @@ def test_sandbox_service_executes_pending_route_tasks(tmp_path: Path, monkeypatc
         fake_capture_page_snapshot,
     )
 
-    session = ResearchSession(user_prompt="Analyze AI support tools.")
+    session = ResearchSession(user_id="demo-user", user_prompt="Analyze AI support tools.")
     run = WorkflowRun(session_id=session.id)
     route_task = AgentTask(
         run_id=run.id,

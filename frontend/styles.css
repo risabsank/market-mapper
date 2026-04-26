@@ -758,6 +758,15 @@ th {
   margin-top: 8px;
 }
 
+.section-status-line {
+  font-size: 0.9rem;
+  opacity: 0.8;
+}
+
+.event-card {
+  border-left: 3px solid var(--accent);
+}
+
 .source-card p,
 .source-card h4,
 .pricing-card p,

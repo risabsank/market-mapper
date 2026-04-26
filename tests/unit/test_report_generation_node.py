@@ -15,6 +15,7 @@ from market_mapper.workflow.state import ResearchWorkflowState
 
 def test_report_generation_node_attaches_sandbox_artifact(monkeypatch) -> None:
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )

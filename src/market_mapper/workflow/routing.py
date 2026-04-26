@@ -30,11 +30,8 @@ def determine_next_route(state: ResearchWorkflowState) -> WorkflowRoute:
     if state.verification_result.requires_retry:
         return _retry_route(state.verification_result.next_actions)
 
-    if state.report is None:
-        return "report_generation"
-
-    if not state.chart_specs:
-        return "chart_generation"
+    if state.report is None or not state.chart_specs:
+        return "output_generation"
 
     if state.dashboard_state is None:
         return "dashboard_builder"
@@ -54,6 +51,7 @@ def select_executor_route(state: ResearchWorkflowState) -> WorkflowRoute:
         "structured_extraction",
         "comparison",
         "critic_verifier",
+        "output_generation",
         "report_generation",
         "chart_generation",
         "dashboard_builder",

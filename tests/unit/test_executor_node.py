@@ -31,6 +31,7 @@ def test_executor_node_creates_sandbox_task_when_requested(monkeypatch) -> None:
     )
 
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )
@@ -68,6 +69,7 @@ def test_executor_node_tracks_retries_for_target_stage(monkeypatch) -> None:
     )
 
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )
@@ -125,6 +127,7 @@ def test_executor_caps_research_retries_and_moves_forward(monkeypatch) -> None:
     get_settings.cache_clear()
 
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )
@@ -158,7 +161,7 @@ def test_executor_caps_research_retries_and_moves_forward(monkeypatch) -> None:
 
     updated = executor_node(state)
 
-    assert updated.executor_route == "report_generation"
+    assert updated.executor_route == "output_generation"
     assert updated.run.retry_count == 0
     assert updated.run.checkpoints[-1].payload["retry_cap_reached"] is True
     assert "Retry cap reached for web research" in updated.executor_summary

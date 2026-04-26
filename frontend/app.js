@@ -1,3 +1,17 @@
+import {
+  DEFAULT_ACCESS_TOKEN,
+  resolveAccessToken,
+  storeAccessToken,
+  withAccessToken,
+} from "./src/lib/auth.js";
+import {
+  deleteJsonRequest,
+  fetchBlob,
+  getJson,
+  postJsonRequest,
+} from "./src/lib/api.js";
+import { openSessionStream } from "./src/lib/sessionStream.js";
+
 const DEFAULT_CHAT_SUGGESTIONS = [
   "Which company looks strongest for enterprise support teams?",
   "Where is pricing transparency strongest or weakest?",
@@ -11,16 +25,21 @@ const state = {
   theme: localStorage.getItem("market-mapper-theme") || "light",
   chatCollapsed: false,
   sidebarCollapsed: localStorage.getItem("market-mapper-sidebar-collapsed") === "true",
+  accessToken: resolveAccessToken(),
+  currentUser: null,
   sessions: [],
   sessionId: null,
   session: null,
   runStatus: null,
+  workspace: null,
+  runEvents: [],
   dashboard: null,
   loading: true,
   error: null,
   thread: [],
   composerPrompt: "",
   loadRequestId: 0,
+  sessionStream: null,
 };
 
 initialize().catch((error) => {
@@ -33,7 +52,14 @@ async function initialize() {
   applySidebarState();
   bindEvents();
   renderDashboard();
+  await bootstrapAuth();
   await bootstrapWorkspace();
+}
+
+async function bootstrapAuth() {
+  state.accessToken = resolveAccessToken() || DEFAULT_ACCESS_TOKEN;
+  storeAccessToken(state.accessToken);
+  state.currentUser = await getJson("/api/auth/me", state.accessToken);
 }
 
 function bindEvents() {
@@ -72,8 +98,11 @@ async function bootstrapWorkspace() {
     return;
   }
 
+  closeSessionStream();
   state.session = null;
   state.runStatus = null;
+  state.workspace = null;
+  state.runEvents = [];
   state.dashboard = null;
   state.sessionId = null;
   state.thread = [];
@@ -97,6 +126,7 @@ async function loadSessions() {
 
 async function loadDashboard(sessionId = resolveSessionId()) {
   const loadRequestId = ++state.loadRequestId;
+  closeSessionStream();
   state.loading = true;
   state.error = null;
   renderAppState({
@@ -131,7 +161,7 @@ async function loadDashboard(sessionId = resolveSessionId()) {
 
   let payload;
   try {
-    payload = await waitForApprovedDashboard(sessionId);
+    payload = await waitForApprovedDashboard(sessionId, loadRequestId);
   } catch (error) {
     if (String(error.message || "").includes("superseded")) {
       return;
@@ -146,6 +176,8 @@ async function loadDashboard(sessionId = resolveSessionId()) {
     runStatus: state.runStatus,
     payload,
   });
+  state.workspace = null;
+  state.runEvents = [];
   state.thread = [
     {
       role: "assistant",
@@ -199,46 +231,40 @@ function beginNewSessionDraft() {
   openFreshWorkspace();
 }
 
-async function waitForApprovedDashboard(sessionId) {
-  const loadRequestId = state.loadRequestId;
-  for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
+async function waitForApprovedDashboard(sessionId, loadRequestId) {
+  try {
+    return await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/dashboard`);
+  } catch (error) {
     if (loadRequestId !== state.loadRequestId) {
       throw new Error("Dashboard load was superseded by a newer session.");
     }
-    try {
-      return await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/dashboard`);
-    } catch (error) {
-      if (loadRequestId !== state.loadRequestId) {
-        throw new Error("Dashboard load was superseded by a newer session.");
-      }
-      if (error.status !== 404) {
-        throw error;
-      }
-      state.runStatus = state.session?.active_run_id
-        ? await fetchRunStatus(state.session.active_run_id)
-        : state.runStatus;
-      if (!state.runStatus || !isRunPending(state.runStatus.run.status)) {
-        throw new Error("No approved dashboard is available for this session yet.");
-      }
-      renderAppState({
-        eyebrow: "Running",
-        title: "Research is still in progress",
-        body: buildRunProgressMessage(state.runStatus),
-        showRetry: false,
-      });
-      renderRunProgress(state.runStatus);
-      renderDashboard();
-      await sleep(RUN_POLL_INTERVAL_MS);
+    if (error.status !== 404) {
+      throw error;
     }
+    state.runStatus = state.session?.active_run_id
+      ? await fetchRunStatus(state.session.active_run_id)
+      : state.runStatus;
+    state.workspace = await fetchWorkspaceSnapshot(sessionId);
+    state.runEvents = state.workspace?.run_id ? await fetchRunEvents(state.workspace.run_id) : [];
+    state.dashboard = mapWorkspaceSnapshotToDashboard({
+      session: state.session,
+      runStatus: state.runStatus,
+      workspace: state.workspace,
+      runEvents: state.runEvents,
+    });
+    if (!state.runStatus || !isRunPending(state.runStatus.run.status)) {
+      throw new Error("No approved dashboard is available for this session yet.");
+    }
+    renderAppState({
+      eyebrow: "Running",
+      title: "Research is still in progress",
+      body: buildRunProgressMessage(state.runStatus),
+      showRetry: false,
+    });
+    renderRunProgress(state.runStatus);
+    renderDashboard();
+    return streamApprovedDashboard(sessionId, loadRequestId);
   }
-  renderAppState({
-    eyebrow: "Still working",
-    title: "The research run is taking longer than usual",
-    body: "Market Mapper is still collecting and verifying information. You can keep this page open and retry in a moment without losing the session.",
-    showRetry: true,
-  });
-  renderRunProgress(state.runStatus || { run: { current_node: "executor" }, progress: { percent_complete: 85 } });
-  throw new Error("The research run is still in progress. Retry in a moment to refresh the dashboard.");
 }
 
 function renderDashboard() {
@@ -292,6 +318,7 @@ function renderDashboard() {
   renderCharts();
   renderSources();
   renderDashboardSections();
+  renderRunEvents();
   renderChatSuggestions();
   renderChatThread();
   renderReportSections();
@@ -625,6 +652,13 @@ function renderDashboardSections() {
             <article class="section-card">
               <p class="eyebrow">${escapeHtml(section.key)}</p>
               <h4>${escapeHtml(section.title)}</h4>
+              ${
+                section.status
+                  ? `<p class="muted-copy section-status-line">${escapeHtml(formatRunLabel(section.status))}${
+                      Number.isFinite(section.progressPercent) ? ` · ${Math.round(section.progressPercent)}%` : ""
+                    }</p>`
+                  : ""
+              }
               <p class="muted-copy">${escapeHtml(section.summary || "No section summary available.")}</p>
               ${
                 section.contentRefs?.length
@@ -638,6 +672,28 @@ function renderDashboardSections() {
         )
         .join("")
     : `<article class="section-card"><p class="muted-copy">Saved dashboard sections will appear here once the dashboard builder has run.</p></article>`;
+}
+
+function renderRunEvents() {
+  const container = document.getElementById("live-events");
+  if (!container) {
+    return;
+  }
+  const events = (state.dashboard?.liveEvents || []).slice(-8).reverse();
+  container.innerHTML = events.length
+    ? events
+        .map(
+          (event) => `
+            <article class="section-card event-card">
+              <p class="eyebrow">${escapeHtml(formatRunLabel(event.kind || "update"))}</p>
+              <h4>${escapeHtml(event.node_name ? formatStageLabel(event.node_name) : "Workflow update")}</h4>
+              <p class="muted-copy">${escapeHtml(event.message || "An update was recorded for this run.")}</p>
+              <p class="muted-copy section-status-line">${escapeHtml(formatRelativeDate(event.created_at))}</p>
+            </article>
+          `
+        )
+        .join("")
+    : `<article class="section-card"><p class="muted-copy">Live workflow events will appear here while the session is running.</p></article>`;
 }
 
 function renderReportSections() {
@@ -699,20 +755,10 @@ async function handleChatSubmit(event) {
 }
 
 async function askSessionChat(question) {
-  const response = await fetch("/api/chat/answer", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      session_id: state.sessionId,
-      question,
-    }),
+  return postJson("/api/chat/answer", {
+    session_id: state.sessionId,
+    question,
   });
-  if (!response.ok) {
-    throw new Error(`Chat request failed with status ${response.status}`);
-  }
-  return response.json();
 }
 
 function toggleTheme() {
@@ -757,7 +803,10 @@ function applySidebarState() {
 function downloadMarkdown() {
   const reportDownloadUrl = state.dashboard?.report.downloadUrl;
   if (reportDownloadUrl) {
-    window.location.href = reportDownloadUrl;
+    downloadAuthenticatedReport(reportDownloadUrl).catch((error) => {
+      console.error(error);
+      showErrorState("Unable to download report", error.message || "The Markdown artifact could not be downloaded.");
+    });
     return;
   }
   const blob = new Blob([state.dashboard?.report.markdown || ""], { type: "text/markdown;charset=utf-8" });
@@ -796,10 +845,11 @@ function showErrorState(title, body) {
 }
 
 function syncControlState() {
-  const disabled = state.loading || !state.dashboard;
-  document.getElementById("download-report").disabled = disabled;
-  document.getElementById("chat-input").disabled = disabled;
-  document.querySelector("#chat-form button[type='submit']").disabled = disabled;
+  const hasApprovedDashboard = Boolean(state.dashboard?.isApproved);
+  document.getElementById("download-report").disabled =
+    state.loading || (!state.dashboard?.report?.downloadUrl && !state.dashboard?.report?.markdown);
+  document.getElementById("chat-input").disabled = state.loading || !hasApprovedDashboard;
+  document.querySelector("#chat-form button[type='submit']").disabled = state.loading || !hasApprovedDashboard;
   document.getElementById("prompt-submit").disabled = state.loading;
   document.getElementById("prompt-clear").disabled = state.loading;
 }
@@ -847,6 +897,7 @@ function mapSnapshotToDashboard({ session, runStatus, payload }) {
   const tradeoffs = snapshot.comparison_result?.tradeoffs || [];
 
   return {
+    isApproved: true,
     session: {
       id: session.id,
       prompt: session.user_prompt,
@@ -876,7 +927,7 @@ function mapSnapshotToDashboard({ session, runStatus, payload }) {
     report: {
       id: snapshot.report?.id,
       markdown: snapshot.report?.markdown_body || "",
-      downloadUrl: payload.report_download_url,
+      downloadUrl: withAccessToken(payload.report_download_url, state.accessToken),
       sections: reportSections.map((section) => ({
         heading: section.heading,
         body: section.body,
@@ -891,8 +942,100 @@ function mapSnapshotToDashboard({ session, runStatus, payload }) {
       summary: section.summary,
       contentRefs: section.content_refs || [],
     })),
-    dashboardArtifactUrl: payload.dashboard_artifact?.url || null,
-    reportArtifactUrl: payload.report_artifact?.url || null,
+    dashboardArtifactUrl: withAccessToken(payload.dashboard_artifact?.url || null, state.accessToken),
+    reportArtifactUrl: withAccessToken(payload.report_artifact?.url || null, state.accessToken),
+  };
+}
+
+function mapWorkspaceSnapshotToDashboard({ session, runStatus, workspace, runEvents }) {
+  const companyStatuses = workspace?.company_statuses || [];
+  const companies = companyStatuses.map((company) => ({
+    id: company.company_profile_id || company.company_candidate_id || company.id,
+    name: company.name,
+    website: company.website,
+    positioning: company.summary || "Research is still being gathered for this company.",
+    targetCustomers: [],
+    pricingModel: "Still collecting public pricing evidence",
+    publicPricingDetails: company.source_document_ids?.length
+      ? [`${company.source_document_ids.length} source documents have been collected so far.`]
+      : [],
+    coreFeatures: [],
+    integrations: [],
+    differentiators: [],
+    strengths: [],
+    gaps: company.missing_fields || [],
+    confidence: company.confidence || 0,
+    missing: company.missing_fields || [],
+    sources: company.source_document_ids || [],
+    claims: [],
+    status: company.status,
+  }));
+  const sources = (workspace?.source_documents || []).map((source) => ({
+    id: source.id,
+    title: source.title || source.id,
+    url: source.url,
+    snippet: source.snippet || "",
+    company: source.metadata?.company_name || "Source",
+    sourceType: source.source_type || "web",
+  }));
+  const dashboardSections = (workspace?.sections || []).map((section) => ({
+    key: section.key,
+    title: section.title,
+    summary: section.summary,
+    contentRefs: section.content_refs || [],
+    status: section.status,
+    progressPercent: section.progress_percent || 0,
+  }));
+  return {
+    isApproved: false,
+    session: {
+      id: session.id,
+      prompt: session.user_prompt,
+      promptSummary:
+        "This live workspace updates as parallel company workers collect evidence, normalize profiles, and hand results back to the shared run.",
+      status: formatRunLabel(runStatus?.run.status || session.status || workspace?.session_status || "pending"),
+    },
+    plan: {
+      marketQuery: workspace?.research_plan?.market_query || "Live research workspace",
+      requestedCompanyCount: workspace?.research_plan?.requested_company_count || companies.length,
+      discoveryCriteria: workspace?.research_plan?.discovery_criteria || [],
+      comparisonDimensions: (workspace?.research_plan?.comparison_dimensions || []).map(formatDimensionLabel),
+      assumptions: workspace?.research_plan?.assumptions || [],
+    },
+    executiveSummary:
+      workspace?.comparison_result?.ideal_customer_notes?.[0] ||
+      "The dashboard is filling in with live research while the final approved comparison is still being assembled.",
+    keyTakeaways: [
+      `${companies.length} companies are currently in the parallel research set.`,
+      `${sources.length} source documents have been gathered so far.`,
+      workspace?.current_node ? `Current workflow step: ${formatStageLabel(workspace.current_node)}.` : "The workflow is warming up.",
+    ],
+    tradeoffs: [
+      "This is a live workspace snapshot, so some sections may still be incomplete.",
+      "The final approved report and chat unlock after verification finishes.",
+    ],
+    companies,
+    comparisonFindings: (workspace?.comparison_result?.findings || []).map((finding) => ({
+      dimension: finding.dimension,
+      summary: finding.summary,
+    })),
+    charts: [],
+    report: {
+      id: workspace?.report?.id || null,
+      markdown: workspace?.report?.markdown_body || "",
+      downloadUrl: null,
+      sections: (workspace?.report?.sections || []).map((section) => ({
+        heading: section.heading,
+        body: section.body,
+        citationIds: section.citation_ids || [],
+      })),
+    },
+    sources,
+    chatSuggestions: DEFAULT_CHAT_SUGGESTIONS,
+    dashboardSections,
+    dashboardArtifactUrl: null,
+    reportArtifactUrl: null,
+    liveEvents: runEvents?.events || [],
   };
 }
 
@@ -905,7 +1048,7 @@ function buildCharts(chartSpecs, chartArtifacts, companyProfiles, comparisonResu
     title: chart.title,
     description: chart.description,
     type: chart.chart_type,
-    artifactUrl: chartArtifactsById[chart.id]?.artifact?.url || null,
+    artifactUrl: withAccessToken(chartArtifactsById[chart.id]?.artifact?.url || null, state.accessToken),
     artifactSvg: renderChartSvg(chart, companyProfiles, comparisonResult),
   }));
 }
@@ -1043,6 +1186,7 @@ function clearStoredSessionId() {
 }
 
 function openFreshWorkspace() {
+  closeSessionStream();
   localStorage.removeItem("market-mapper-session-id");
   const url = new URL(window.location.href);
   url.searchParams.delete("session_id");
@@ -1080,6 +1224,7 @@ function formatStageLabel(value) {
     structured_extraction: "Normalizing company data",
     comparison: "Comparing the market",
     critic_verifier: "Verifying the evidence",
+    output_generation: "Generating report and charts",
     report_generation: "Writing the report",
     chart_generation: "Rendering charts",
     dashboard_builder: "Building the dashboard",
@@ -1092,53 +1237,172 @@ async function fetchRunStatus(runId) {
   return fetchJson(`/api/runs/${encodeURIComponent(runId)}`);
 }
 
+async function fetchWorkspaceSnapshot(sessionId) {
+  return fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/workspace`);
+}
+
+async function fetchRunEvents(runId) {
+  return fetchJson(`/api/runs/${encodeURIComponent(runId)}/events`);
+}
+
 async function fetchJson(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    const payload = await readErrorPayload(response);
-    const error = new Error(payload || `Request failed with status ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return response.json();
+  return getJson(url, state.accessToken);
 }
 
 async function postJson(url, payload) {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const message = await readErrorPayload(response);
-    const error = new Error(message || `Request failed with status ${response.status}`);
-    error.status = response.status;
-    throw error;
-  }
-  return response.json();
+  return postJsonRequest(url, payload, state.accessToken);
 }
 
 async function deleteRequest(url) {
-  const response = await fetch(url, {
-    method: "DELETE",
+  return deleteJsonRequest(url, state.accessToken);
+}
+
+function streamApprovedDashboard(sessionId, loadRequestId) {
+  if (typeof EventSource !== "function") {
+    return pollForApprovedDashboard(sessionId, loadRequestId);
+  }
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      closeSessionStream();
+      renderAppState({
+        eyebrow: "Still working",
+        title: "The research run is taking longer than usual",
+        body: "Market Mapper is still collecting and verifying information. You can keep this page open and retry in a moment without losing the session.",
+        showRetry: true,
+      });
+      renderRunProgress(state.runStatus || { run: { current_node: "executor" }, progress: { percent_complete: 85 } });
+      reject(new Error("The research stream is still in progress. Retry in a moment to refresh the dashboard."));
+    }, RUN_POLL_INTERVAL_MS * RUN_POLL_ATTEMPTS);
+
+    const guard = () => loadRequestId === state.loadRequestId && state.sessionId === sessionId;
+    const settle = (fn, payload) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      window.clearTimeout(timeout);
+      closeSessionStream();
+      fn(payload);
+    };
+
+    state.sessionStream = openSessionStream({
+      sessionId,
+      accessToken: state.accessToken,
+      onWorkspace: (workspace) => {
+        if (!guard()) {
+          settle(reject, new Error("Dashboard load was superseded by a newer session."));
+          return;
+        }
+        state.workspace = workspace;
+        state.dashboard = mapWorkspaceSnapshotToDashboard({
+          session: state.session,
+          runStatus: state.runStatus,
+          workspace: state.workspace,
+          runEvents: state.runEvents,
+        });
+        renderDashboard();
+      },
+      onRunStatus: (runStatus) => {
+        if (!guard()) {
+          return;
+        }
+        state.runStatus = runStatus;
+        renderAppState({
+          eyebrow: "Running",
+          title: "Research is still in progress",
+          body: buildRunProgressMessage(runStatus),
+          showRetry: false,
+        });
+        renderRunProgress(runStatus);
+        renderDashboard();
+        if (["failed", "canceled", "blocked"].includes(String(runStatus.run.status))) {
+          settle(reject, new Error(`Run finished with status ${runStatus.run.status}.`));
+        }
+      },
+      onRunEvents: (runEvents) => {
+        if (!guard()) {
+          return;
+        }
+        state.runEvents = runEvents.events || [];
+        if (state.workspace) {
+          state.dashboard = mapWorkspaceSnapshotToDashboard({
+            session: state.session,
+            runStatus: state.runStatus,
+            workspace: state.workspace,
+            runEvents: state.runEvents,
+          });
+          renderDashboard();
+        }
+      },
+      onApprovedDashboard: (payload) => {
+        if (!guard()) {
+          settle(reject, new Error("Dashboard load was superseded by a newer session."));
+          return;
+        }
+        settle(resolve, payload);
+      },
+      onError: (payload) => {
+        if (!guard()) {
+          return;
+        }
+        const message = payload?.detail || payload?.message || "The live session stream disconnected.";
+        if (state.runStatus && !isRunPending(state.runStatus.run.status)) {
+          settle(reject, new Error(message));
+        }
+      },
+    });
   });
-  if (!response.ok) {
-    const message = await readErrorPayload(response);
-    const error = new Error(message || `Request failed with status ${response.status}`);
-    error.status = response.status;
-    throw error;
+}
+
+async function pollForApprovedDashboard(sessionId, loadRequestId) {
+  for (let attempt = 0; attempt < RUN_POLL_ATTEMPTS; attempt += 1) {
+    if (loadRequestId !== state.loadRequestId) {
+      throw new Error("Dashboard load was superseded by a newer session.");
+    }
+    try {
+      return await fetchJson(`/api/sessions/${encodeURIComponent(sessionId)}/dashboard`);
+    } catch (error) {
+      if (error.status !== 404) {
+        throw error;
+      }
+      state.runStatus = state.session?.active_run_id
+        ? await fetchRunStatus(state.session.active_run_id)
+        : state.runStatus;
+      state.workspace = await fetchWorkspaceSnapshot(sessionId);
+      state.runEvents = state.workspace?.run_id ? await fetchRunEvents(state.workspace.run_id) : [];
+      state.dashboard = mapWorkspaceSnapshotToDashboard({
+        session: state.session,
+        runStatus: state.runStatus,
+        workspace: state.workspace,
+        runEvents: state.runEvents,
+      });
+      renderDashboard();
+      await sleep(RUN_POLL_INTERVAL_MS);
+    }
+  }
+  throw new Error("The research run is still in progress. Retry in a moment to refresh the dashboard.");
+}
+
+function closeSessionStream() {
+  if (state.sessionStream) {
+    state.sessionStream.close();
+    state.sessionStream = null;
   }
 }
 
-async function readErrorPayload(response) {
-  try {
-    const payload = await response.json();
-    return payload.detail || payload.message || null;
-  } catch (_error) {
-    return null;
-  }
+async function downloadAuthenticatedReport(url) {
+  const blob = await fetchBlob(url, state.accessToken);
+  const downloadUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = downloadUrl;
+  anchor.download = "market-mapper-report.md";
+  anchor.click();
+  URL.revokeObjectURL(downloadUrl);
 }
 
 function sleep(ms) {

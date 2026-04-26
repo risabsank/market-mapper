@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from market_mapper.api.routes import (
+    auth_router,
     artifacts_router,
     chat_router,
     reports_router,
@@ -31,6 +32,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(artifacts_router)
+    app.include_router(auth_router)
     app.include_router(chat_router)
     app.include_router(sessions_router)
     app.include_router(runs_router)

@@ -10,9 +10,11 @@ from .run_jobs import get_run_job_manager
 from .workflow_service import (
     ApprovedDashboardPayload,
     ArtifactLink,
+    AuthorizationError,
     DashboardNotReadyError,
     ChartArtifactPayload,
     RunNotFoundError,
+    RunEventsResponse,
     RunStatusResponse,
     SessionDeleteError,
     SessionNotFoundError,
@@ -23,9 +25,11 @@ from .workflow_service import (
 __all__ = [
     "ApprovedDashboardPayload",
     "ArtifactLink",
+    "AuthorizationError",
     "ChartArtifactPayload",
     "DashboardNotReadyError",
     "OpenAIConfigurationError",
+    "RunEventsResponse",
     "RunNotFoundError",
     "RunStatusResponse",
     "SessionDeleteError",

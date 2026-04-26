@@ -7,32 +7,37 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
+from market_mapper.auth import AuthenticatedUser, CurrentUser
 from market_mapper.schemas.models import Report
-from market_mapper.services import DashboardNotReadyError, WorkflowService
+from market_mapper.services import AuthorizationError, DashboardNotReadyError, WorkflowService
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 @router.get("/{report_id}", response_model=Report)
-def get_report(report_id: str) -> Report:
+def get_report(report_id: str, user: AuthenticatedUser = CurrentUser) -> Report:
     """Fetch one generated report by id."""
 
     service = WorkflowService()
     try:
-        return service.get_report_snapshot(report_id).report
+        return service.get_report_snapshot(report_id, user_id=user.user_id).report
     except DashboardNotReadyError as exc:
         raise HTTPException(status_code=404, detail=f"Report not found: {report_id}") from exc
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
 
 @router.get("/{report_id}/download")
-def download_report(report_id: str):
+def download_report(report_id: str, user: AuthenticatedUser = CurrentUser):
     """Download the Markdown report artifact when available."""
 
     service = WorkflowService()
     try:
-        payload, content_type = service.get_report_download(report_id)
+        payload, content_type = service.get_report_download(report_id, user_id=user.user_id)
     except DashboardNotReadyError as exc:
         raise HTTPException(status_code=404, detail=f"Report not found: {report_id}") from exc
+    except AuthorizationError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     path = Path(payload)
     if path.exists():

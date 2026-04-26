@@ -65,6 +65,7 @@ def run_workflow_executor(node_input: ExecutorNodeInput) -> ExecutorNodeOutput:
         "structured_extraction",
         "comparison",
         "critic_verifier",
+        "output_generation",
         "report_generation",
         "chart_generation",
         "dashboard_builder",
@@ -154,12 +155,22 @@ def run_workflow_executor(node_input: ExecutorNodeInput) -> ExecutorNodeOutput:
     sandbox_purpose = decision.sandbox_purpose or SANDBOX_ROUTE_DEFAULTS.get(route)
     needs_sandbox = bool(decision.needs_sandbox or route in SANDBOX_ROUTE_DEFAULTS)
     summary = decision.summary
+    parallel_company_count = (
+        len(node_input.state.company_candidates)
+        if route in {"web_research", "structured_extraction"} and node_input.state.company_candidates
+        else 0
+    )
     if model_route != deterministic_route:
         summary = (
             f"{decision.summary} State-authoritative routing selected {route}."
             if decision.summary
             else f"State-authoritative routing selected {route}."
         )
+    if parallel_company_count > 1:
+        parallel_summary = (
+            f"Launching {parallel_company_count} parallel company workers for {route.replace('_', ' ')}."
+        )
+        summary = f"{summary} {parallel_summary}".strip() if summary else parallel_summary
     if retry_cap_reached and retry_target_route is not None:
         capped_summary = (
             f"Retry cap reached for {retry_target_route.replace('_', ' ')} after "
@@ -180,6 +191,7 @@ def run_workflow_executor(node_input: ExecutorNodeInput) -> ExecutorNodeOutput:
             "retry_requested": retry_requested,
             "retry_target_route": retry_target_route,
             "retry_cap_reached": retry_cap_reached,
+            "parallel_company_count": parallel_company_count,
             "needs_sandbox": needs_sandbox,
             "sandbox_purpose": sandbox_purpose,
         },
@@ -208,10 +220,8 @@ def _count_route_attempts(node_input: ExecutorNodeInput, route: WorkflowRoute) -
 
 def _determine_post_retry_route(node_input: ExecutorNodeInput) -> WorkflowRoute:
     state = node_input.state
-    if state.report is None:
-        return "report_generation"
-    if not state.chart_specs:
-        return "chart_generation"
+    if state.report is None or not state.chart_specs:
+        return "output_generation"
     if state.dashboard_state is None:
         return "dashboard_builder"
     return "session_chatbot"

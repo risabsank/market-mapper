@@ -11,6 +11,7 @@ from market_mapper.workflow.nodes import (
     critic_verifier_node,
     dashboard_builder_node,
     executor_node,
+    output_generation_node,
     planner_node,
     report_generation_node,
     session_chatbot_node,
@@ -63,6 +64,7 @@ def build_research_graph():
     graph.add_node("structured_extraction", _wrap_node("structured_extraction", structured_extraction_node))
     graph.add_node("comparison", _wrap_node("comparison", comparison_node))
     graph.add_node("critic_verifier", _wrap_node("critic_verifier", critic_verifier_node))
+    graph.add_node("output_generation", _wrap_node("output_generation", output_generation_node))
     graph.add_node("report_generation", _wrap_node("report_generation", report_generation_node))
     graph.add_node("chart_generation", _wrap_node("chart_generation", chart_generation_node))
     graph.add_node("dashboard_builder", _wrap_node("dashboard_builder", dashboard_builder_node))
@@ -81,6 +83,7 @@ def build_research_graph():
             "structured_extraction": "structured_extraction",
             "comparison": "comparison",
             "critic_verifier": "critic_verifier",
+            "output_generation": "output_generation",
             "report_generation": "report_generation",
             "chart_generation": "chart_generation",
             "dashboard_builder": "dashboard_builder",
@@ -93,6 +96,7 @@ def build_research_graph():
     graph.add_edge("structured_extraction", "executor")
     graph.add_edge("comparison", "executor")
     graph.add_edge("critic_verifier", "executor")
+    graph.add_edge("output_generation", "executor")
     graph.add_edge("report_generation", "executor")
     graph.add_edge("chart_generation", "executor")
     graph.add_edge("dashboard_builder", "executor")
@@ -112,6 +116,7 @@ def graph_routes() -> dict[str, str]:
         "structured_extraction": "executor",
         "comparison": "executor",
         "critic_verifier": "executor",
+        "output_generation": "executor",
         "report_generation": "executor",
         "chart_generation": "executor",
         "dashboard_builder": "executor",

@@ -12,6 +12,7 @@ from market_mapper.schemas.models import (
     ApprovalRecord,
     DashboardState,
     ResearchSession,
+    WorkspaceSnapshot,
     SandboxArtifact,
     SandboxTask,
     WorkflowRun,
@@ -26,6 +27,7 @@ class FileWorkflowStateStore:
         self.sessions_dir = self.root_dir / "sessions"
         self.runs_dir = self.root_dir / "runs"
         self.dashboards_dir = self.root_dir / "dashboards"
+        self.workspace_snapshots_dir = self.root_dir / "workspace_snapshots"
         self.sandbox_tasks_dir = self.root_dir / "sandbox_tasks"
         self.artifacts_dir = self.root_dir / "artifacts"
         self.initialize()
@@ -34,6 +36,7 @@ class FileWorkflowStateStore:
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
         self.runs_dir.mkdir(parents=True, exist_ok=True)
         self.dashboards_dir.mkdir(parents=True, exist_ok=True)
+        self.workspace_snapshots_dir.mkdir(parents=True, exist_ok=True)
         self.sandbox_tasks_dir.mkdir(parents=True, exist_ok=True)
         self.artifacts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -97,6 +100,25 @@ class FileWorkflowStateStore:
 
     def delete_dashboard_state(self, dashboard_state_id: str) -> None:
         path = self.dashboards_dir / f"{dashboard_state_id}.json"
+        if not path.exists():
+            raise FileNotFoundError(path)
+        path.unlink()
+
+    def save_workspace_snapshot(self, snapshot: WorkspaceSnapshot) -> None:
+        snapshot.touch()
+        self._write_model(
+            self.workspace_snapshots_dir / f"{snapshot.session_id}.json",
+            snapshot,
+        )
+
+    def load_workspace_snapshot(self, session_id: str) -> WorkspaceSnapshot:
+        return self._read_model(
+            self.workspace_snapshots_dir / f"{session_id}.json",
+            WorkspaceSnapshot,
+        )
+
+    def delete_workspace_snapshot(self, session_id: str) -> None:
+        path = self.workspace_snapshots_dir / f"{session_id}.json"
         if not path.exists():
             raise FileNotFoundError(path)
         path.unlink()

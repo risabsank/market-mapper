@@ -2,6 +2,7 @@ from pathlib import Path
 
 from market_mapper.schemas.models import (
     ArtifactKind,
+    AgentTask,
     ComparisonResult,
     DashboardState,
     Report,
@@ -21,7 +22,7 @@ def test_workflow_service_start_run_persists_completed_state(monkeypatch, tmp_pa
         state_store=store,
         session_state_service=SessionStateService(tmp_path / "state"),
     )
-    session = service.create_session(user_prompt="Compare AI support platforms.")
+    session = service.create_session(user_id="demo-user", user_prompt="Compare AI support platforms.")
 
     class FakeGraph:
         def invoke(self, state: ResearchWorkflowState) -> ResearchWorkflowState:
@@ -49,7 +50,7 @@ def test_workflow_service_start_run_persists_completed_state(monkeypatch, tmp_pa
         lambda: FakeGraph(),
     )
 
-    run = service.start_run(session.id)
+    run = service.start_run(session.id, user_id="demo-user")
     loaded_session = store.load_session(session.id)
     loaded_run = store.load_run(run.id)
     loaded_dashboard = store.load_dashboard_state("dashboard_1")
@@ -68,7 +69,7 @@ def test_workflow_service_report_download_falls_back_to_markdown(tmp_path: Path)
         state_store=store,
         session_state_service=session_service,
     )
-    session = ResearchSession(id="session_1", user_prompt="Compare AI support tools.")
+    session = ResearchSession(id="session_1", user_id="demo-user", user_prompt="Compare AI support tools.")
     run = WorkflowRun(id="run_1", session_id=session.id)
     snapshot = session_service.save_approved_snapshot(
         session=session,
@@ -88,7 +89,7 @@ def test_workflow_service_report_download_falls_back_to_markdown(tmp_path: Path)
         source_documents=[],
     )
 
-    payload, content_type = service.get_report_download(snapshot.report.id)
+    payload, content_type = service.get_report_download(snapshot.report.id, user_id="demo-user")
 
     assert payload == "# Report"
     assert content_type == "text/markdown; charset=utf-8"
@@ -101,7 +102,7 @@ def test_workflow_service_builds_dashboard_payload_with_artifact_urls(tmp_path: 
         state_store=store,
         session_state_service=session_service,
     )
-    session = ResearchSession(id="session_1", user_prompt="Compare AI support tools.")
+    session = ResearchSession(id="session_1", user_id="demo-user", user_prompt="Compare AI support tools.")
     run = WorkflowRun(id="run_1", session_id=session.id)
     chart_artifact = SandboxArtifact(
         id="artifact_chart_1",
@@ -138,8 +139,37 @@ def test_workflow_service_builds_dashboard_payload_with_artifact_urls(tmp_path: 
     )
 
     snapshot.chart_specs = []
-    payload = service.get_approved_dashboard_payload(snapshot.session_id)
+    payload = service.get_approved_dashboard_payload(snapshot.session_id, user_id="demo-user")
 
     assert payload.report_download_url.endswith("/api/reports/report_1/download")
     assert payload.dashboard_artifact is not None
     assert payload.dashboard_artifact.url.endswith("/api/artifacts/artifact_dashboard_1")
+
+
+def test_workflow_service_returns_workspace_snapshot_and_events(tmp_path: Path) -> None:
+    store = FileWorkflowStateStore(tmp_path / "state")
+    session_service = SessionStateService(tmp_path / "state")
+    service = WorkflowService(
+        state_store=store,
+        session_state_service=session_service,
+    )
+    session = service.create_session(user_id="demo-user", user_prompt="Compare AI support tools.")
+    run = service.create_run(session.id, user_id="demo-user")
+    task = AgentTask(
+        run_id=run.id,
+        agent_name="company_discovery",
+        task_type="discover_companies",
+    )
+    task.mark_running()
+    task.mark_completed(outputs={"company_candidate_ids": ["candidate_1"]}, output_summary="Discovery complete")
+    run.add_task(task)
+    run.add_checkpoint(node_name="executor", summary="Launching 4 parallel company workers.", payload={"parallel_company_count": 4})
+    store.save_run(run)
+
+    snapshot = service.get_workspace_snapshot(session.id, user_id="demo-user")
+    events = service.get_run_events(run.id, user_id="demo-user")
+
+    assert snapshot.session_id == session.id
+    assert snapshot.run_id == run.id
+    assert events.run_id == run.id
+    assert any(event.kind == "checkpoint" for event in events.events)

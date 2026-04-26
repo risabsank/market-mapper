@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 import json
 from pathlib import Path
+from textwrap import dedent
 
 from market_mapper.research import (
     build_research_targets,
@@ -12,8 +13,9 @@ from market_mapper.research import (
     extract_page_content_from_file,
 )
 from market_mapper.charts.service import render_chart_artifacts, validate_chart_specs
-from market_mapper.schemas.models import CompanyCandidate, ResearchPlan, SourceDocument
 from market_mapper.schemas.models import ChartSpec, ComparisonResult
+from market_mapper.schemas.models import CompanyCandidate, CompanyProfile, ResearchPlan, SourceDocument
+from market_mapper.schemas.models import DashboardState, VerificationResult
 from market_mapper.schemas.models.common import ArtifactKind
 from market_mapper.sandbox.artifacts.helpers import (
     register_file_artifact,
@@ -212,6 +214,55 @@ class LocalSandboxRuntime(SandboxRuntime):
         self, request: SandboxExecutionRequest
     ) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
+        company_candidates = [
+            CompanyCandidate.model_validate(candidate)
+            for candidate in request.payload.get("company_candidates", [])
+        ]
+        source_documents = [
+            SourceDocument.model_validate(document)
+            for document in request.payload.get("source_documents", [])
+        ]
+        company_profiles = [
+            CompanyProfile.model_validate(profile)
+            for profile in request.payload.get("company_profiles", [])
+        ]
+        profiles_by_name = {profile.name.strip().lower(): profile for profile in company_profiles}
+        evidence_packets = []
+        for candidate in company_candidates:
+            company_key = candidate.name.strip().lower()
+            profile = profiles_by_name.get(company_key)
+            related_documents = [
+                document
+                for document in source_documents
+                if str(document.metadata.get("company_name", "")).strip().lower() == company_key
+            ]
+            evidence_preview = []
+            for document in related_documents[:5]:
+                extracted_text_path = document.metadata.get("extracted_text_path")
+                excerpt = None
+                if extracted_text_path and Path(extracted_text_path).exists():
+                    excerpt = Path(extracted_text_path).read_text(encoding="utf-8")[:1600]
+                evidence_preview.append(
+                    {
+                        "source_document_id": document.id,
+                        "title": document.title,
+                        "url": document.url,
+                        "snippet": document.snippet,
+                        "excerpt": excerpt,
+                    }
+                )
+            evidence_packets.append(
+                {
+                    "company_candidate_id": candidate.id,
+                    "company_name": candidate.name,
+                    "website": candidate.website,
+                    "profile_id": profile.id if profile is not None else None,
+                    "confidence": profile.confidence if profile is not None else None,
+                    "missing_fields": profile.explicit_missing_fields if profile is not None else [],
+                    "source_count": len(related_documents),
+                    "evidence_preview": evidence_preview,
+                }
+            )
         artifacts = [
             write_json_artifact(
                 root_dir=working_dir,
@@ -219,18 +270,59 @@ class LocalSandboxRuntime(SandboxRuntime):
                 label="Structured extraction input",
                 payload=request.payload,
                 metadata={"route_name": request.route_name},
-            )
+            ),
+            write_json_artifact(
+                root_dir=working_dir,
+                filename="structured_extraction_manifest.json",
+                label="Structured extraction manifest",
+                payload={
+                    "company_count": len(company_candidates),
+                    "profile_count": len(company_profiles),
+                    "evidence_packets": evidence_packets,
+                },
+                metadata={"route_name": request.route_name},
+            ),
         ]
         return SandboxExecutionResult(
             sandbox_task_id=request.sandbox_task_id,
             route_name=request.route_name,
             working_directory=str(working_dir),
-            summary="Sandbox preserved structured extraction inputs.",
+            summary=(
+                f"Sandbox assembled {len(evidence_packets)} structured extraction evidence packets "
+                f"for downstream profile validation."
+            ),
             artifacts=artifacts,
+            metadata={
+                "company_count": len(company_candidates),
+                "profile_count": len(company_profiles),
+                "evidence_packet_count": len(evidence_packets),
+            },
         )
 
     def _handle_critic_verifier(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
+        company_profiles = [
+            CompanyProfile.model_validate(profile)
+            for profile in request.payload.get("company_profiles", [])
+        ]
+        verification_result = VerificationResult.model_validate(request.payload.get("verification_result", {}))
+        low_confidence = [
+            {
+                "name": profile.name,
+                "confidence": profile.confidence,
+                "missing_fields": profile.explicit_missing_fields,
+            }
+            for profile in company_profiles
+            if profile.confidence < 0.7 or profile.explicit_missing_fields
+        ]
+        issue_summary = [
+            {
+                "severity": issue.severity,
+                "message": issue.message,
+                "fix_target": issue.fix_target,
+            }
+            for issue in verification_result.issues
+        ]
         artifacts = [
             write_json_artifact(
                 root_dir=working_dir,
@@ -238,14 +330,35 @@ class LocalSandboxRuntime(SandboxRuntime):
                 label="Verification payload",
                 payload=request.payload,
                 metadata={"route_name": request.route_name},
-            )
+            ),
+            write_json_artifact(
+                root_dir=working_dir,
+                filename="verification_summary.json",
+                label="Verification summary",
+                payload={
+                    "approved": verification_result.approved,
+                    "requires_retry": verification_result.requires_retry,
+                    "issue_summary": issue_summary,
+                    "low_confidence_profiles": low_confidence,
+                    "next_actions": verification_result.next_actions,
+                },
+                metadata={"route_name": request.route_name},
+            ),
         ]
         return SandboxExecutionResult(
             sandbox_task_id=request.sandbox_task_id,
             route_name=request.route_name,
             working_directory=str(working_dir),
-            summary="Sandbox stored verification payload for review.",
+            summary=(
+                f"Sandbox prepared a verification summary with {len(issue_summary)} issues and "
+                f"{len(low_confidence)} low-confidence profiles."
+            ),
             artifacts=artifacts,
+            metadata={
+                "approved": verification_result.approved,
+                "requires_retry": verification_result.requires_retry,
+                "issue_count": len(issue_summary),
+            },
         )
 
     def _handle_report_generation(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
@@ -318,6 +431,23 @@ class LocalSandboxRuntime(SandboxRuntime):
 
     def _handle_dashboard_builder(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:
         working_dir = Path(request.working_directory)
+        dashboard_state = DashboardState.model_validate(request.payload)
+        preview_markdown = dedent(
+            f"""\
+            # Dashboard Preview
+
+            Session: `{dashboard_state.session_id}`
+            Run: `{dashboard_state.run_id}`
+
+            Executive Summary:
+            {dashboard_state.executive_summary or "No executive summary provided."}
+
+            ## Sections
+            """
+        ) + "\n".join(
+            f"- **{section.title}** (`{section.key}`): {section.summary or 'No summary available.'}"
+            for section in dashboard_state.sections
+        )
         artifacts = [
             write_json_artifact(
                 root_dir=working_dir,
@@ -326,14 +456,32 @@ class LocalSandboxRuntime(SandboxRuntime):
                 payload=request.payload,
                 kind=ArtifactKind.DASHBOARD_PREVIEW,
                 metadata={"route_name": request.route_name},
-            )
+            ),
+            write_text_artifact(
+                root_dir=working_dir,
+                filename="dashboard_preview.md",
+                label="Dashboard preview summary",
+                content=preview_markdown,
+                kind=ArtifactKind.DASHBOARD_PREVIEW,
+                content_type="text/markdown",
+                metadata={
+                    "route_name": request.route_name,
+                    "dashboard_id": dashboard_state.id,
+                },
+            ),
         ]
         return SandboxExecutionResult(
             sandbox_task_id=request.sandbox_task_id,
             route_name=request.route_name,
             working_directory=str(working_dir),
-            summary="Sandbox prepared dashboard preview artifacts.",
+            summary=(
+                f"Sandbox prepared dashboard preview artifacts for {len(dashboard_state.sections)} sections."
+            ),
             artifacts=artifacts,
+            metadata={
+                "dashboard_id": dashboard_state.id,
+                "section_count": len(dashboard_state.sections),
+            },
         )
 
     def _handle_generic(self, request: SandboxExecutionRequest) -> SandboxExecutionResult:

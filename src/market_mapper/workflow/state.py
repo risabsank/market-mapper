@@ -18,6 +18,7 @@ from market_mapper.schemas.models import (
     SandboxTask,
     SourceDocument,
     VerificationResult,
+    WorkspaceSnapshot,
     WorkflowRun,
 )
 from market_mapper.schemas.models.common import MarketMapperModel, utc_now
@@ -40,6 +41,7 @@ class ResearchWorkflowState(MarketMapperModel):
     dashboard_state: DashboardState | None = None
     sandbox_tasks: list[SandboxTask] = Field(default_factory=list)
     sandbox_artifacts: list[SandboxArtifact] = Field(default_factory=list)
+    workspace_snapshot: WorkspaceSnapshot | None = None
     updated_at: datetime = Field(default_factory=utc_now)
 
     def touch(self) -> None:

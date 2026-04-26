@@ -4,7 +4,7 @@ from market_mapper.workflow.state import ResearchWorkflowState
 
 
 def test_determine_next_route_starts_with_planner() -> None:
-    session = ResearchSession(user_prompt="Analyze AI support tools.")
+    session = ResearchSession(user_id="demo-user", user_prompt="Analyze AI support tools.")
     run = WorkflowRun(session_id=session.id)
     state = ResearchWorkflowState(session=session, run=run)
 
@@ -13,6 +13,7 @@ def test_determine_next_route_starts_with_planner() -> None:
 
 def test_determine_next_route_moves_to_discovery_after_plan() -> None:
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )
@@ -24,6 +25,7 @@ def test_determine_next_route_moves_to_discovery_after_plan() -> None:
 
 def test_select_executor_route_prefers_executor_decision() -> None:
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze AI support tools.",
         research_plan=ResearchPlan(market_query="AI support tools"),
     )

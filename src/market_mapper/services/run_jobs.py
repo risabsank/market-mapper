@@ -1,59 +1,71 @@
-"""Managed background execution for workflow runs."""
+"""Managed background execution for workflow runs using subprocess workers."""
 
 from __future__ import annotations
 
 import logging
-from concurrent.futures import Future, ThreadPoolExecutor
-from threading import Lock
-
-from market_mapper.services.workflow_service import WorkflowService
+import subprocess
+import sys
+from pathlib import Path
+from threading import Lock, Thread
 
 logger = logging.getLogger("market_mapper.run_jobs")
 
 
 class RunJobManager:
-    """Own a small in-process worker pool for workflow execution."""
+    """Own a small process launcher for workflow execution."""
 
-    def __init__(self, *, max_workers: int = 4) -> None:
-        self._executor = ThreadPoolExecutor(
-            max_workers=max_workers,
-            thread_name_prefix="market-mapper-runner",
-        )
-        self._futures: dict[str, Future] = {}
+    def __init__(self) -> None:
+        self._processes: dict[str, subprocess.Popen] = {}
         self._lock = Lock()
 
     def submit(self, run_id: str) -> None:
         """Submit a workflow run if it is not already active."""
 
         with self._lock:
-            existing = self._futures.get(run_id)
-            if existing and not existing.done():
+            existing = self._processes.get(run_id)
+            if existing and existing.poll() is None:
                 logger.info("Run %s is already active; skipping duplicate submit.", run_id)
                 return
-            logger.info("Submitting workflow run %s to managed executor.", run_id)
-            future = self._executor.submit(self._execute_run, run_id)
-            self._futures[run_id] = future
-            future.add_done_callback(lambda completed, rid=run_id: self._finalize(rid, completed))
+            logger.info("Submitting workflow run %s to subprocess worker.", run_id)
+            process = subprocess.Popen(
+                [sys.executable, "-m", "market_mapper.worker", run_id],
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                start_new_session=True,
+                cwd=str(Path(__file__).resolve().parents[3]),
+            )
+            self._processes[run_id] = process
+            Thread(
+                target=self._watch_process,
+                args=(run_id, process),
+                name=f"market-mapper-run-watch-{run_id[:8]}",
+                daemon=True,
+            ).start()
 
-    def _execute_run(self, run_id: str) -> None:
-        logger.info("Worker picked up workflow run %s.", run_id)
-        service = WorkflowService()
-        service.execute_run(run_id)
-
-    def _finalize(self, run_id: str, future: Future) -> None:
-        try:
-            future.result()
-            logger.info("Workflow run %s completed successfully.", run_id)
-        except Exception:
-            logger.exception("Workflow run %s failed inside managed executor.", run_id)
-        finally:
-            with self._lock:
-                self._futures.pop(run_id, None)
+    def _watch_process(self, run_id: str, process: subprocess.Popen) -> None:
+        return_code = process.wait()
+        if return_code == 0:
+            logger.info("Workflow run %s completed successfully in subprocess worker.", run_id)
+        else:
+            logger.error(
+                "Workflow run %s exited from subprocess worker with code %s.",
+                run_id,
+                return_code,
+            )
+        with self._lock:
+            current = self._processes.get(run_id)
+            if current is process:
+                self._processes.pop(run_id, None)
 
     def shutdown(self) -> None:
-        """Shut down the worker pool."""
+        """Shut down the active worker processes."""
 
-        self._executor.shutdown(wait=False, cancel_futures=False)
+        with self._lock:
+            for run_id, process in list(self._processes.items()):
+                if process.poll() is None:
+                    logger.info("Terminating active workflow subprocess for run %s.", run_id)
+                    process.terminate()
+            self._processes.clear()
 
 
 _RUN_JOB_MANAGER = RunJobManager()

@@ -28,6 +28,7 @@ class ApprovedSessionSnapshot(MarketMapperModel):
 
     id: str = Field(default_factory=lambda: make_id("approved_session"))
     session_id: str
+    user_id: str
     run_id: str
     user_prompt: str
     research_plan: ResearchPlan | None = None
@@ -97,6 +98,7 @@ class SessionStateService:
     ) -> ApprovedSessionSnapshot:
         snapshot = ApprovedSessionSnapshot(
             session_id=session.id,
+            user_id=session.user_id,
             run_id=run.id,
             user_prompt=session.user_prompt,
             research_plan=session.research_plan,

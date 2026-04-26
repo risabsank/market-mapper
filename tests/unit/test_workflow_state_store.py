@@ -5,11 +5,13 @@ from market_mapper.schemas.models import (
     ApprovalRecord,
     ApprovalStatus,
     ArtifactKind,
+    CompanyWorkspaceStatus,
     DashboardState,
     ResearchPlan,
     ResearchSession,
     SandboxArtifact,
     SandboxTask,
+    WorkspaceSnapshot,
     WorkflowRun,
 )
 from market_mapper.storage import FileWorkflowStateStore
@@ -19,6 +21,7 @@ def test_file_workflow_state_store_persists_runs_tasks_and_artifacts(tmp_path: P
     store = FileWorkflowStateStore(tmp_path / "state")
 
     session = ResearchSession(
+        user_id="demo-user",
         user_prompt="Analyze 4 of the largest companies in AI customer support.",
         research_plan=ResearchPlan(
             market_query="AI customer support",
@@ -84,3 +87,26 @@ def test_file_workflow_state_store_persists_runs_tasks_and_artifacts(tmp_path: P
     assert loaded_run.approval_records[0].status == ApprovalStatus.APPROVED
     assert loaded_dashboard.run_id == run.id
     assert loaded_artifact.kind == ArtifactKind.PAGE_SNAPSHOT
+
+
+def test_file_workflow_state_store_persists_workspace_snapshots(tmp_path: Path) -> None:
+    store = FileWorkflowStateStore(tmp_path / "state")
+    snapshot = WorkspaceSnapshot(
+        session_id="session_1",
+        user_id="demo-user",
+        run_id="run_1",
+        prompt="Compare AI support tools.",
+        company_statuses=[
+            CompanyWorkspaceStatus(
+                name="Example Co",
+                status="running",
+                source_document_ids=["source_1"],
+            )
+        ],
+    )
+
+    store.save_workspace_snapshot(snapshot)
+    loaded = store.load_workspace_snapshot("session_1")
+
+    assert loaded.run_id == "run_1"
+    assert loaded.company_statuses[0].name == "Example Co"

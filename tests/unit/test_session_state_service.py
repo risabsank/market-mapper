@@ -17,6 +17,7 @@ def test_session_state_service_persists_approved_snapshot(tmp_path) -> None:
     service = SessionStateService(root_dir=tmp_path)
     session = ResearchSession(
         id="session_1",
+        user_id="demo-user",
         user_prompt="Compare AI support tools.",
         research_plan=ResearchPlan(market_query="AI support"),
     )
@@ -50,6 +51,7 @@ def test_session_state_service_resolves_normal_chat_from_persisted_snapshot(tmp_
     service = SessionStateService(root_dir=tmp_path)
     session = ResearchSession(
         id="session_1",
+        user_id="demo-user",
         user_prompt="Compare AI support tools.",
         research_plan=ResearchPlan(market_query="AI support"),
     )
@@ -83,6 +85,7 @@ def test_session_state_service_resolves_demo_chat_from_inline_snapshot(tmp_path)
     service = SessionStateService(root_dir=tmp_path)
     session = ResearchSession(
         id="session_1",
+        user_id="demo-user",
         user_prompt="Compare AI support tools.",
         research_plan=ResearchPlan(market_query="AI support"),
     )
