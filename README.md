@@ -1,60 +1,173 @@
 # Market Mapper
 
-Market Mapper is an OpenAI-powered market research app that turns a broad prompt into a structured competitive analysis dashboard.
+Market Mapper is an OpenAI-powered multi-agent research system that turns a broad market question into a structured, source-backed competitive analysis dashboard.
 
-Today the repo includes:
+Give it a prompt like:
 
-- a LangGraph planner/executor workflow
+> "Analyze 4 of the largest companies in AI customer support and create a comparison report."
+
+It will:
+
+- turn the prompt into a research plan
+- discover the right company set
+- collect public sources
+- extract normalized company profiles
+- compare companies across defined dimensions
+- verify gaps and retry weak stages when needed
+- generate charts and a Markdown report
+- assemble a dashboard
+- answer follow-up questions from approved research only
+
+## Why This Project Exists
+
+Most market research workflows are slow, manual, and hard to trace back to evidence.
+
+Market Mapper explores a different model:
+
+- use multiple specialized agents instead of one giant prompt
+- coordinate them through typed shared state
+- let the UI show live progress while research is still happening
+- preserve artifacts and sources so the final output stays inspectable
+
+This repository is both:
+
+- a working research application
+- a reference architecture for multi-agent workflows
+
+## What Makes It Interesting
+
+Market Mapper combines:
+
+- a planner/executor workflow in LangGraph
 - OpenAI-powered specialist agents
-- parallel per-company research and extraction workers during the heavy research stages
-- parallel output generation for report drafting and chart rendering after approval
-- durable session, run, dashboard, report, and artifact persistence
-- progressive workspace snapshots, run event feeds, and server-sent event streaming while a session is still in flight
-- subprocess-based workflow workers instead of an in-process thread pool
-- token-scoped multi-user session ownership checks across sessions, runs, reports, artifacts, and chat
-- a FastAPI backend
-- a session-backed dashboard UI with modular auth, API, and stream helpers
-- a session chatbot that answers only from server-approved research state
+- parallel company-level research and extraction
+- parallel post-verification output generation
+- sandbox-backed browser and artifact execution
+- durable run state and resumable snapshots
+- live dashboard streaming over SSE
+- token-scoped multi-user access controls
+- an approved-state-only session chatbot
 
-## What The App Does
+## Core Capabilities
 
-A live session follows this flow:
+### Multi-Agent Research Workflow
 
-1. create a research session from a prompt
-2. start a workflow run for that session
-3. let the backend run planner and discovery
-4. fan out per-company web research and per-company structured extraction in parallel where it makes sense
-5. merge the shared results back into comparison, verification, reporting, charting, and dashboard assembly
-6. stream live workspace progress into the UI while the approved dashboard is still pending
-7. open the dashboard with that session id
-8. ask follow-up questions in the right-side chat
-9. download the generated Markdown report
+The system decomposes one research request into specialized stages:
 
-## Requirements
+1. research planning
+2. workflow routing
+3. company discovery
+4. source collection
+5. structured extraction
+6. comparison
+7. verification and retry
+8. report generation
+9. chart generation
+10. dashboard assembly
+11. approved-state chat
+
+### Parallel Work Where It Matters
+
+Once the company set is known:
+
+- web research fans out into per-company workers
+- structured extraction fans out into per-company workers
+- report and chart generation run in parallel after approval
+
+That means the system is not just sequential orchestration. It is a real fan-out/fan-in workflow with synthesis stages.
+
+### Live Workspace While The Run Is In Flight
+
+The UI supports two modes:
+
+- **Live workspace** while research is still running
+- **Approved dashboard** after verification finishes
+
+While the run is active, the frontend can show:
+
+- current workflow stage
+- progress percent
+- per-company status
+- partial source coverage
+- live workflow events
+- section-level readiness
+
+### Source-Backed Outputs
+
+The system keeps track of:
+
+- source URLs
+- extracted claims
+- report citations
+- sandbox-generated artifacts
+
+The chatbot answers follow-up questions using only the approved session snapshot, not arbitrary in-memory context.
+
+## High-Level Architecture
+
+Market Mapper uses a planner/executor multi-agent pattern:
+
+- the **planner** turns the raw prompt into a structured plan
+- the **executor** decides what should happen next from workflow state
+- **specialist agents** handle discovery, research, extraction, comparison, verification, reporting, charting, and dashboard building
+- the **verifier** can send the workflow back for targeted retries
+- the **frontend** streams live state until the approved dashboard is ready
+
+## Technology Stack
+
+### Backend
+
+- FastAPI
+- LangGraph
+- OpenAI Responses API
+- Pydantic
+- Playwright
+- Beautiful Soup
+- Trafilatura
+
+### Frontend
+
+- HTML
+- CSS
+- modular browser-side JavaScript
+- Server-Sent Events for live updates
+
+### Persistence and Execution
+
+- file-backed durable workflow state
+- sandbox artifact storage
+- subprocess-based worker execution
+
+## Running The Project
+
+### Requirements
 
 - Python 3.11+
 - an OpenAI API key
 
-## Get an OpenAI API Key
+### 1. Create and activate a virtual environment
 
-1. Create or log into your OpenAI account.
-2. Open [API keys](https://platform.openai.com/api-keys).
-3. Create a new key.
-4. Export it in your shell before starting the app.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
 
-OpenAI quickstart: [Developer quickstart](https://platform.openai.com/docs/quickstart?api-mode=responses)
+### 2. Install dependencies
 
-## Environment Setup
+```bash
+pip install -e ".[dev]"
+python -m playwright install
+```
 
-Market Mapper reads the key from `OPENAI_API_KEY`.
+### 3. Set environment variables
 
-On macOS or Linux:
+At minimum:
 
 ```bash
 export OPENAI_API_KEY="your_api_key_here"
 ```
 
-Optional environment variables:
+Recommended local development defaults:
 
 ```bash
 export OPENAI_MODEL="gpt-5-mini"
@@ -67,57 +180,32 @@ export MARKET_MAPPER_AUTH_TOKENS='{"dev-token":"demo-user"}'
 
 Notes:
 
-- `OPENAI_MODEL` defaults to `gpt-5-mini`
-- `OPENAI_REASONING_EFFORT` defaults to `low`
-- `OPENAI_ENABLE_WEB_SEARCH` controls whether web-enabled agents request OpenAI web search tools
-- `MARKET_MAPPER_MAX_RESEARCH_RETRIES` caps verifier-driven retry loops before the workflow proceeds with explicit uncertainty
-- `MARKET_MAPPER_STATE_DIR` controls where sessions, runs, snapshots, and sandbox artifacts are stored
-- `MARKET_MAPPER_AUTH_TOKENS` maps bearer tokens to user ids for the built-in multi-user auth layer
-- by default it uses `/tmp/market_mapper/state` so `uvicorn --reload` does not restart the server every time workflow state is written
-- by default the frontend uses the development token `dev-token`
+- `MARKET_MAPPER_STATE_DIR` defaults to `/tmp/market_mapper/state`
+- `MARKET_MAPPER_AUTH_TOKENS` maps bearer tokens to user ids
+- the frontend assumes the development token `dev-token` unless you change it
 
-## Installation
-
-From the project root:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-python -m playwright install
-```
-
-## Run The App
-
-Start the API server from the project root:
+### 4. Start the app
 
 ```bash
 python -m uvicorn market_mapper.api.app:app --reload
 ```
 
-Once the server is running:
+Once it is running:
 
-- dashboard host: [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
+- Dashboard: [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
 - API docs: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
-The dashboard now supports two modes:
+## Starting A Session
 
-- `live workspace` while the run is still gathering and validating data
-- `approved dashboard` once verification, report generation, chart generation, and dashboard assembly are complete
+The dashboard supports creating sessions directly from the UI, but you can also start a session through the API.
 
-The dashboard now authenticates every API call with a bearer token and streams live workspace updates over SSE from the backend rather than polling every few seconds.
-
-## Start A Live Session
-
-You now need to create a session, start a run, and then open the dashboard with that session id.
-
-All API requests below use the default development token:
+Use the development token locally:
 
 ```bash
 export MARKET_MAPPER_TOKEN="dev-token"
 ```
 
-### 1. Create a session
+### Create a session
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/sessions \
@@ -128,232 +216,170 @@ curl -X POST http://127.0.0.1:8000/api/sessions \
   }'
 ```
 
-Example response shape:
-
-```json
-{
-  "id": "session_...",
-  "user_prompt": "Analyze 4 of the largest companies in AI customer support and create a comparison report.",
-  "active_run_id": null
-}
-```
-
-Copy the returned session id.
-
-### 2. Start a workflow run
-
-Replace `SESSION_ID` below with the returned id:
+### Start a run
 
 ```bash
 curl -X POST http://127.0.0.1:8000/api/sessions/SESSION_ID/runs \
   -H "Authorization: Bearer ${MARKET_MAPPER_TOKEN}"
 ```
 
-This starts the LangGraph workflow and returns the run record.
-
-### 3. Check run progress
-
-Replace `RUN_ID` with the run id returned by the previous step:
+### Check progress
 
 ```bash
 curl http://127.0.0.1:8000/api/runs/RUN_ID \
   -H "Authorization: Bearer ${MARKET_MAPPER_TOKEN}"
 ```
 
-The response includes:
-
-- the run object
-- current node
-- percent complete
-- completed task count
-
-### 4. Open the real dashboard
-
-Open the dashboard with the session id in the query string:
+### Open the session in the dashboard
 
 [http://127.0.0.1:8000/dashboard/?session_id=SESSION_ID](http://127.0.0.1:8000/dashboard/?session_id=SESSION_ID)
 
-The frontend will:
+## Streaming and Live Updates
 
-- fetch the session
-- open an authenticated server-sent event stream for the session while the run is in progress
-- load the live workspace snapshot and run events while the approved dashboard is not ready
-- render partial company progress, partial source coverage, section-level statuses, and live activity updates
-- switch over to the approved dashboard payload once ready
-- render the real report sections, dashboard sections, charts, sources, and chat context
+The dashboard no longer depends on polling alone.
 
-## API Routes
+While a run is active, the frontend opens a server-sent events stream and receives:
+
+- workspace snapshots
+- run status updates
+- run event feeds
+- the final approved dashboard payload
+
+Route:
+
+- `GET /api/sessions/{session_id}/stream`
+
+This gives the UI a much more natural “live research workspace” feel while agents are still collecting and validating information.
+
+## Sandbox Behavior
+
+Sandbox execution is used for the parts of the workflow that benefit from isolation and reproducibility.
+
+Current sandbox-backed routes include:
+
+- `web_research`
+  - page capture
+  - screenshots
+  - extracted text
+- `structured_extraction`
+  - per-company evidence packets
+- `critic_verifier`
+  - verification summaries
+  - low-confidence profile reports
+- `report_generation`
+  - Markdown report artifacts
+- `chart_generation`
+  - chart image artifacts
+- `dashboard_builder`
+  - dashboard preview payloads
+  - preview summaries
+
+## Authentication Model
+
+The app now supports token-scoped user ownership.
+
+The default local development setup uses:
+
+- token: `dev-token`
+- user id: `demo-user`
+
+Auth works through:
+
+- `Authorization: Bearer <token>`
+- or `access_token` query param for SSE-compatible endpoints
+
+## Main API Surface
+
+### Auth
+
+- `GET /api/auth/me`
 
 ### Sessions
 
-- `GET /api/auth/me`
-  - resolve the current authenticated user from the bearer token
 - `POST /api/sessions`
-  - create a research session from a prompt
 - `GET /api/sessions`
-  - list the current user's sessions
 - `GET /api/sessions/{session_id}`
-  - fetch session metadata
-- `GET /api/sessions/{session_id}/dashboard`
-  - fetch the approved dashboard payload enriched with artifact URLs
 - `GET /api/sessions/{session_id}/workspace`
-  - fetch the progressive workspace snapshot for a running session
+- `GET /api/sessions/{session_id}/dashboard`
 - `GET /api/sessions/{session_id}/stream`
-  - stream workspace, run status, run events, and approved dashboard updates over SSE
 - `DELETE /api/sessions/{session_id}`
-  - delete one session and its durable outputs
 
 ### Runs
 
 - `POST /api/sessions/{session_id}/runs`
-  - start a workflow run for a session
 - `GET /api/runs/{run_id}`
-  - inspect run status and progress
 - `GET /api/runs/{run_id}/events`
-  - fetch the run event feed derived from checkpoints and task activity
 
 ### Reports
 
 - `GET /api/reports/{report_id}`
-  - fetch the generated report object
 - `GET /api/reports/{report_id}/download`
-  - download the sandbox-produced Markdown report artifact when present, otherwise the saved Markdown body
 
 ### Artifacts
 
 - `GET /api/artifacts/{artifact_id}`
-  - serve persisted chart, dashboard, and other sandbox artifacts
 
 ### Chat
 
 - `POST /api/chat/answer`
-  - production chat route
-  - accepts only `session_id` and `question`
-  - resolves answers from server-approved snapshot state
-- `POST /api/chat/demo-answer`
-  - demo-only route for inline approved-state payloads
-
-## How The Dashboard Works
-
-The dashboard is no longer bootstrapped from hardcoded demo data.
-
-It now:
-
-- loads real approved session data from the backend
-- loads a live workspace snapshot while the approved dashboard is still pending
-- shows parallel company progress and live workflow activity
-- shows loading and error states while runs are still executing
-- renders approved `DashboardState.sections`
-- renders approved report sections
-- uses served chart artifact URLs when available
-- downloads the report from the backend route
-- sends chat questions using only `session_id`
-
-## Parallel Workflow Model
-
-Market Mapper is no longer a purely sequential research pipeline.
-
-The current model is:
-
-1. planner builds the research plan
-2. executor routes into discovery
-3. once the company set is known, web research fans out into parallel per-company workers
-4. structured extraction fans out into parallel per-company workers
-5. those partial company results are persisted into a live workspace snapshot
-6. comparison, verification, reporting, charts, and dashboard assembly fan back in over the shared state
-
-This gives the UI something meaningful to render before the final approved dashboard is ready.
-
-## Worker Model
-
-Workflow runs no longer execute inside the API server's in-process thread pool.
-
-Instead:
-
-1. the API creates a durable run record
-2. the run job manager starts a dedicated subprocess worker
-3. the worker executes `python -m market_mapper.worker RUN_ID`
-4. the worker persists live state as the graph advances
-5. the dashboard streams those persisted updates
-
-This keeps long-running LLM and sandbox work isolated from the request-handling process.
-
-## Sandbox Behavior
-
-The sandbox layer is now more than simple payload preservation:
-
-- `web_research` captures pages, screenshots, and extracted text
-- `structured_extraction` emits per-company evidence packets for downstream review
-- `critic_verifier` emits verification summaries and low-confidence profile reports
-- `report_generation` renders Markdown artifacts
-- `chart_generation` renders chart image artifacts
-- `dashboard_builder` emits dashboard preview payloads and human-readable preview summaries
-
-## Packages Used
-
-Core dependencies declared in `pyproject.toml`:
-
-- `openai`
-- `langgraph`
-- `pydantic`
-- `playwright`
-- `beautifulsoup4`
-- `trafilatura`
-- `pandas`
-- `jinja2`
-
-Dev dependency:
-
-- `pytest`
 
 ## Project Structure
 
 - `src/market_mapper/agents/`
-  OpenAI-powered planner, executor, research, extraction, comparison, verifier, report, chart, dashboard, and chat agents
+  - OpenAI-powered research agents
 - `src/market_mapper/workflow/`
-  graph, node contracts, routing, helpers, progressive snapshot building, and shared workflow state
+  - graph, routing, node contracts, helpers, shared state
 - `src/market_mapper/api/`
-  FastAPI app plus routes for sessions, runs, reports, artifacts, and chat
-- `src/market_mapper/storage/`
-  durable file-backed persistence for sessions, runs, live workspace snapshots, dashboards, sandbox tasks, and artifacts
+  - FastAPI app and route layer
 - `src/market_mapper/services/`
-  OpenAI integration, workflow execution service, and approved session snapshot service
+  - workflow execution, OpenAI integration, approved snapshot service, worker management
 - `src/market_mapper/sandbox/`
-  trusted-harness sandbox orchestration and local runtime handlers
+  - trusted-harness execution and sandbox runtime handlers
+- `src/market_mapper/storage/`
+  - durable state storage
 - `frontend/`
-  dashboard UI, live workspace rendering, run activity feed, and right-side session chat
+  - dashboard UI and streaming client
 - `tests/`
-  unit tests for workflow, state, sandbox, and service behavior
+  - unit tests
 
 ## Current Status
 
 Implemented:
 
-- typed Pydantic models for all main workflow entities
-- durable file-backed state storage
-- LangGraph workflow graph and node flow
-- OpenAI-powered agents with structured outputs
-- sandbox-backed web research, report artifacts, chart artifacts, and dashboard preview artifacts
-- session/run/report/artifact/chat API routes
-- live workspace snapshot and run events APIs
-- session-backed dashboard loading
-- progressive dashboard filling while the run is still in progress
-- server-approved chatbot state
+- typed shared workflow state
+- planner/executor orchestration
+- OpenAI-powered specialist agents
+- parallel research and extraction
+- parallel output generation
+- durable run/session/artifact persistence
+- live workspace snapshots
+- SSE-based live dashboard updates
+- sandbox-backed artifact production
+- token-scoped session ownership
+- approved-state-only chatbot
 
-Still worth improving:
+Still evolving:
 
-- more comprehensive backend integration tests
-- websockets layered on top of the existing SSE stream for richer bidirectional collaboration
-- deeper fan-out/fan-in orchestration beyond the current parallel company stages
+- deeper distributed job infrastructure beyond subprocess workers
+- more end-to-end integration coverage
+- richer orchestration and synthesis patterns across later workflow stages
 
 ## Running Tests
-
-After installing dependencies:
 
 ```bash
 pytest
 ```
 
+## OpenAI Setup
+
+Create an API key here:
+
+- [OpenAI API keys](https://platform.openai.com/api-keys)
+
+Reference docs:
+
+- [OpenAI quickstart](https://platform.openai.com/docs/quickstart?api-mode=responses)
+
 ## Important Note
 
-This app assumes OpenAI is the primary intelligence layer. If `OPENAI_API_KEY` is missing, OpenAI-backed agents will fail instead of silently falling back to local placeholder behavior.
+This project is intentionally OpenAI-powered end to end. If `OPENAI_API_KEY` is missing, the workflow will fail rather than silently falling back to placeholder behavior.
